@@ -1,0 +1,37 @@
+name: "AgentContextMap"
+description: "Map coding-agent instruction files and optionally fail CI on high-confidence active conflicts."
+author: "BLCCoreStudio"
+
+branding:
+  icon: "map"
+  color: "purple"
+
+inputs:
+  path:
+    description: "Repository path to inspect. It must already be checked out and stay inside GITHUB_WORKSPACE."
+    required: false
+    default: "."
+  target:
+    description: "Optional target path used to resolve path-specific instruction sources."
+    required: false
+    default: ""
+  format:
+    description: "Report format written to the Actions log: terminal or json."
+    required: false
+    default: "terminal"
+  fail-on-conflict:
+    description: "Set to true to fail with exit code 2 when a high-confidence active conflict is found."
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run AgentContextMap
+      shell: bash
+      env:
+        AGENTCONTEXT_INPUT_PATH: ${{ inputs.path }}
+        AGENTCONTEXT_INPUT_TARGET: ${{ inputs.target }}
+        AGENTCONTEXT_INPUT_FORMAT: ${{ inputs.format }}
+        AGENTCONTEXT_INPUT_FAIL_ON_CONFLICT: ${{ inputs.fail-on-conflict }}
+      run: bash "$GITHUB_ACTION_PATH/action-entrypoint.sh"

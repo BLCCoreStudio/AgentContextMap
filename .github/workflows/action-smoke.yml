@@ -1,0 +1,52 @@
+name: Action smoke
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**", "release/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  action-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Create instruction fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$GITHUB_WORKSPACE/.tmp/action-fixture"
+          mkdir -p "$ROOT/src/api"
+          printf 'Always run tests before committing.\n' > "$ROOT/AGENTS.md"
+          printf 'Never run tests before committing.\n' > "$ROOT/src/AGENTS.md"
+          touch "$ROOT/src/api/auth.rs"
+
+      - name: Run Action in report-only mode
+        uses: ./
+        with:
+          path: .tmp/action-fixture
+          target: src/api/auth.rs
+          format: json
+
+      - name: Verify conflict gate
+        id: conflict-gate
+        continue-on-error: true
+        uses: ./
+        with:
+          path: .tmp/action-fixture
+          target: src/api/auth.rs
+          fail-on-conflict: "true"
+
+      - name: Assert conflict gate failed as designed
+        if: always()
+        shell: bash
+        env:
+          GATE_OUTCOME: ${{ steps.conflict-gate.outcome }}
+        run: |
+          set -euo pipefail
+          test "$GATE_OUTCOME" = "failure"

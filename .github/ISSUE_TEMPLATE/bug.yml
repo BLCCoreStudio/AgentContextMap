@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a reproducible AgentContextMap bug or incorrect result.
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AgentContextMap. For instruction-resolution bugs, a minimal repository layout is especially useful.
+  - type: input
+    id: version
+    attributes:
+      label: AgentContextMap version
+      description: Output from `agentcontext --version`, or the commit SHA if built from source.
+      placeholder: agentcontext 0.1.0-alpha.2
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux x86_64 release binary
+        - Linux built from source
+        - macOS built from source
+        - Windows built from source
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: layout
+    attributes:
+      label: Minimal repository layout
+      description: Show the relevant instruction files and target path. Remove secrets and unrelated project content.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: The exact command that reproduces the issue.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: vendor-doc
+    attributes:
+      label: Relevant vendor documentation
+      description: For agent semantics/scope issues, link to the documentation or reproducible vendor behavior supporting the expected result.
+      placeholder: https://...
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, credentials, and private repository content from this report.
+          required: true

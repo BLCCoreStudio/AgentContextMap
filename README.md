@@ -1,13 +1,14 @@
 # AgentContextMap
 
 [![CI](https://github.com/BLCCoreStudio/AgentContextMap/actions/workflows/ci.yml/badge.svg)](https://github.com/BLCCoreStudio/AgentContextMap/actions/workflows/ci.yml)
+[![Action smoke](https://github.com/BLCCoreStudio/AgentContextMap/actions/workflows/action-smoke.yml/badge.svg)](https://github.com/BLCCoreStudio/AgentContextMap/actions/workflows/action-smoke.yml)
 [![Release](https://img.shields.io/github/v/release/BLCCoreStudio/AgentContextMap?include_prereleases&sort=semver)](https://github.com/BLCCoreStudio/AgentContextMap/releases)
 [![License](https://img.shields.io/github/license/BLCCoreStudio/AgentContextMap)](LICENSE)
 [![Rust 1.74+](https://img.shields.io/badge/Rust-1.74%2B-000000?logo=rust)](Cargo.toml)
 
 **Map which repository instructions can affect your coding agents.**
 
-AgentContextMap is a local, read-only CLI for mapping repository instruction files across Codex, Claude Code, Gemini CLI, GitHub Copilot, Cursor, Windsurf, and Cline. Give it a repository — and optionally a target file — to see the relevant instruction sources, activation state, obvious conflicts, context size, and a self-contained HTML report.
+AgentContextMap is a local, read-only tool for mapping repository instruction files across Codex, Claude Code, Gemini CLI, GitHub Copilot, Cursor, Windsurf, and Cline. Give it a repository — and optionally a target file — to see the relevant instruction sources, activation state, obvious conflicts, approximate context size, and a self-contained HTML report.
 
 <p align="center">
   <a href="docs/assets/report-details.png">
@@ -17,7 +18,51 @@ AgentContextMap is a local, read-only CLI for mapping repository instruction fil
 
 > **Status:** early alpha. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
-## Quick start
+## Use it
+
+| GitHub Actions | Local CLI |
+| --- | --- |
+| Inspect repository instruction sources during CI and optionally fail on high-confidence active conflicts. | Inspect locally, emit terminal/JSON output, or generate a self-contained interactive HTML report. |
+| Linux x86_64 runner | Linux x86_64 standalone binary; source builds may work elsewhere |
+
+### GitHub Actions — early-alpha integration
+
+The Action is available from the repository development line. Until a versioned Action release is cut, `@main` is intended for evaluation; pin a full commit SHA for trusted production workflows.
+
+```yaml
+name: Agent instruction check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  agent-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Inspect coding-agent instructions
+        uses: BLCCoreStudio/AgentContextMap@main
+        with:
+          path: .
+          format: terminal
+```
+
+Start report-only. When you want a CI gate for high-confidence active conflicts:
+
+```yaml
+      - name: Enforce active instruction conflicts
+        uses: BLCCoreStudio/AgentContextMap@main
+        with:
+          path: .
+          target: src/api/auth.rs
+          fail-on-conflict: "true"
+```
+
+The composite Action downloads the published `v0.1.0-alpha.2` Linux binary and verifies its fixed SHA-256 digest before execution. The requested repository path must remain inside `GITHUB_WORKSPACE`.
 
 ### Linux x86_64 — download one file and run
 
@@ -184,13 +229,13 @@ Near-term work is focused on correctness rather than adding every format possibl
 3. richer conflict classes with measured false-positive rates;
 4. per-agent context-budget breakdown;
 5. SARIF / GitHub code-scanning output;
-6. signed releases and easier package-manager installs.
+6. a versioned GitHub Action release, signed releases, and easier package-manager installs.
 
-## Contributing
+## Contributing and support
 
 Bug reports and small, well-scoped pull requests are welcome. For scope/precedence bugs, include the agent product, version if known, a minimal repository layout, and a documentation link or reproducible observation.
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md), [`SUPPORT.md`](SUPPORT.md), and [`SECURITY.md`](SECURITY.md).
 
 ## License
 
