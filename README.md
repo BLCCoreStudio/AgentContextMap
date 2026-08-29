@@ -1,29 +1,21 @@
 # AgentContextMap
 
-**See which repository instructions can affect your coding agents.**
+[![CI](https://github.com/BLCCoreStudio/AgentContextMap/actions/workflows/ci.yml/badge.svg)](https://github.com/BLCCoreStudio/AgentContextMap/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/BLCCoreStudio/AgentContextMap?include_prereleases&sort=semver)](https://github.com/BLCCoreStudio/AgentContextMap/releases)
+[![License](https://img.shields.io/github/license/BLCCoreStudio/AgentContextMap)](LICENSE)
+[![Rust 1.74+](https://img.shields.io/badge/Rust-1.74%2B-000000?logo=rust)](Cargo.toml)
+
+**Map which repository instructions can affect your coding agents.**
 
 AgentContextMap is a local, read-only CLI for mapping repository instruction files across Codex, Claude Code, Gemini CLI, GitHub Copilot, Cursor, Windsurf, and Cline. Give it a repository — and optionally a target file — to see the relevant instruction sources, activation state, obvious conflicts, context size, and a self-contained HTML report.
 
+<p align="center">
+  <a href="docs/assets/report-details.png">
+    <img src="docs/assets/report-overview.png" alt="AgentContextMap alpha.2 report showing eight instruction sources, activation states, filters and findings" width="100%">
+  </a>
+</p>
+
 > **Status:** early alpha. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
-
-## Why this exists
-
-A modern repository can contain several instruction systems at once:
-
-- `AGENTS.md` and Codex `AGENTS.override.md`
-- `CLAUDE.md`
-- `GEMINI.md`
-- `.github/copilot-instructions.md`
-- `.github/instructions/**/*.instructions.md`
-- `.cursor/rules/**/*.mdc`
-- `.windsurf/rules/**/*.md`
-- `.clinerules/**/*.md` / `*.txt`
-
-Once these become nested, path-specific, model-decided, or manual, a simple question becomes surprisingly hard:
-
-**Which instructions can affect this file, and which ones are definitely active versus merely conditional?**
-
-AgentContextMap answers that without calling an LLM, executing repository instructions, or sending repository content to a remote service.
 
 ## Quick start
 
@@ -41,6 +33,14 @@ chmod +x agentcontext-linux-x86_64
 ./agentcontext-linux-x86_64 .
 ```
 
+Inspect one target path and generate the interactive report:
+
+```bash
+./agentcontext-linux-x86_64 . \
+  --target src/api/auth.rs \
+  --html report.html
+```
+
 Or download it from the [Releases page](https://github.com/BLCCoreStudio/AgentContextMap/releases). Each standalone binary has a matching `.sha256` file. A tar.gz package is also published for users who prefer an archive.
 
 ### Build from source
@@ -51,17 +51,24 @@ Requires Rust 1.74+.
 cargo install --git https://github.com/BLCCoreStudio/AgentContextMap --bin agentcontext
 ```
 
-Scan a repository:
+## What it helps you inspect
 
-```bash
-agentcontext .
-```
+A modern repository can contain several instruction systems at once:
 
-Inspect one target path:
+- `AGENTS.md` and Codex `AGENTS.override.md`
+- `CLAUDE.md`
+- `GEMINI.md`
+- `.github/copilot-instructions.md`
+- `.github/instructions/**/*.instructions.md`
+- `.cursor/rules/**/*.mdc`
+- `.windsurf/rules/**/*.md`
+- `.clinerules/**/*.md` / `*.txt`
 
-```bash
-agentcontext . --target src/api/auth.rs
-```
+Once these become nested, path-specific, model-decided, or manual, a simple question becomes surprisingly hard:
+
+**Which instructions can affect this file, and which ones are definitely active versus merely conditional?**
+
+AgentContextMap answers that without calling an LLM, executing repository instructions, or sending repository content to a remote service.
 
 Generate a local HTML report:
 
