@@ -2,18 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "test/**", "release/**"]
+    branches: [main, "feat/**", "fix/**", "test/**", "chore/**", "release/**"]
   pull_request:
 
 permissions:
   contents: read
 
+concurrency:
+  group: agentcontext-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
