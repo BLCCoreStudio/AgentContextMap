@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**"]
+    branches: [main, "feat/**", "release/**"]
   pull_request:
 
 permissions:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -28,6 +28,37 @@ jobs:
 
       - name: Release build
         run: cargo build --release
+
+      - name: CLI smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_ROOT="$(mktemp -d)"
+          mkdir -p "$TEST_ROOT/src/api" "$TEST_ROOT/.github/instructions" "$TEST_ROOT/.cursor/rules"
+
+          printf 'Always run tests before committing.\nUse npm for JavaScript dependencies.\n' > "$TEST_ROOT/AGENTS.md"
+          printf 'Never run tests before committing.\nUse pnpm for JavaScript dependencies.\n' > "$TEST_ROOT/src/AGENTS.md"
+          printf 'Prefer small, focused changes.\n' > "$TEST_ROOT/CLAUDE.md"
+          printf '%s\n' '---' 'applyTo: "src/**"' '---' 'Do not modify generated files.' > "$TEST_ROOT/.github/instructions/source.instructions.md"
+          printf '%s\n' '---' 'globs: "src/api/**"' '---' 'API changes must include tests.' > "$TEST_ROOT/.cursor/rules/api.mdc"
+          touch "$TEST_ROOT/src/api/auth.rs"
+
+          ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs > /tmp/agentcontext.txt
+          grep -q 'Sources: 5' /tmp/agentcontext.txt
+          grep -q 'Findings: 2' /tmp/agentcontext.txt
+
+          ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs --json > /tmp/agentcontext.json
+          grep -q '"source_count":5' /tmp/agentcontext.json
+
+          ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs --html /tmp/agentcontext.html > /dev/null
+          test -s /tmp/agentcontext.html
+          grep -q 'See what instructions your coding agents can see.' /tmp/agentcontext.html
+
+          set +e
+          ./target/release/agentcontext "$TEST_ROOT" --fail-on-conflict > /dev/null
+          STATUS=$?
+          set -e
+          test "$STATUS" -eq 2
 
       - name: Format
         run: cargo fmt --all -- --check
