@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly AGENTCONTEXT_FALLBACK_TAG="v0.1.0-alpha.2"
+readonly AGENTCONTEXT_FALLBACK_TAG="v0.1.0"
 readonly AGENTCONTEXT_ASSET="agentcontext-linux-x86_64"
 
 action_ref="${AGENTCONTEXT_ACTION_REF:-}"
-if [[ "$action_ref" =~ ^v[0-9]+(\.[0-9]+){0,2}(-[0-9A-Za-z.-]+)?$ ]]; then
+use_local_binary=false
+local_binary=""
+
+if [[ -z "$action_ref" ]]; then
+  [[ -n "${GITHUB_ACTION_PATH:-}" ]] \
+    || { printf 'AgentContextMap Action: GITHUB_ACTION_PATH is not available for a local Action invocation.\n' >&2; exit 1; }
+  local_binary="${GITHUB_ACTION_PATH}/target/release/agentcontext"
+  [[ -x "$local_binary" ]] \
+    || { printf 'AgentContextMap Action: local Action invocation requires a current release build at %s.\n' "$local_binary" >&2; exit 1; }
+  use_local_binary=true
+elif [[ "$action_ref" =~ ^v[0-9]+(\.[0-9]+){0,2}(-[0-9A-Za-z.-]+)?$ ]]; then
   AGENTCONTEXT_TAG="$action_ref"
 else
   AGENTCONTEXT_TAG="$AGENTCONTEXT_FALLBACK_TAG"
 fi
-readonly AGENTCONTEXT_TAG
-readonly AGENTCONTEXT_RELEASE_URL="https://github.com/BLCCoreStudio/AgentContextMap/releases/download/${AGENTCONTEXT_TAG}/${AGENTCONTEXT_ASSET}"
-readonly AGENTCONTEXT_CHECKSUM_URL="${AGENTCONTEXT_RELEASE_URL}.sha256"
 
 fail() {
   printf 'AgentContextMap Action: %s\n' "$1" >&2
@@ -31,10 +38,17 @@ case "$(uname -m)" in
     ;;
 esac
 
-for command_name in curl sha256sum realpath; do
+for command_name in realpath; do
   command -v "$command_name" >/dev/null 2>&1 \
     || fail "required command '${command_name}' is not available on this runner."
 done
+
+if [[ "$use_local_binary" != "true" ]]; then
+  for command_name in curl sha256sum; do
+    command -v "$command_name" >/dev/null 2>&1 \
+      || fail "required command '${command_name}' is not available on this runner."
+  done
+fi
 
 scan_path="${AGENTCONTEXT_INPUT_PATH:-.}"
 target_path="${AGENTCONTEXT_INPUT_TARGET:-}"
@@ -71,51 +85,60 @@ if [[ -n "${GITHUB_WORKSPACE:-}" ]]; then
   esac
 fi
 
-work_dir="$(mktemp -d -t agentcontext-action.XXXXXXXXXX)"
-cleanup() {
-  rm -rf -- "$work_dir"
-}
-trap cleanup EXIT
+if [[ "$use_local_binary" == "true" ]]; then
+  binary_path="$local_binary"
+  printf 'AgentContextMap Action: using current local release build.\n'
+else
+  readonly AGENTCONTEXT_TAG
+  readonly AGENTCONTEXT_RELEASE_URL="https://github.com/BLCCoreStudio/AgentContextMap/releases/download/${AGENTCONTEXT_TAG}/${AGENTCONTEXT_ASSET}"
+  readonly AGENTCONTEXT_CHECKSUM_URL="${AGENTCONTEXT_RELEASE_URL}.sha256"
 
-binary_path="${work_dir}/${AGENTCONTEXT_ASSET}"
-checksum_path="${binary_path}.sha256"
+  work_dir="$(mktemp -d -t agentcontext-action.XXXXXXXXXX)"
+  cleanup() {
+    rm -rf -- "$work_dir"
+  }
+  trap cleanup EXIT
 
-printf 'AgentContextMap Action: downloading %s...\n' "$AGENTCONTEXT_TAG"
-curl \
-  --fail \
-  --silent \
-  --show-error \
-  --location \
-  --proto '=https' \
-  --tlsv1.2 \
-  --retry 3 \
-  --retry-delay 1 \
-  --retry-all-errors \
-  --connect-timeout 10 \
-  --max-time 120 \
-  --output "$binary_path" \
-  "$AGENTCONTEXT_RELEASE_URL"
+  binary_path="${work_dir}/${AGENTCONTEXT_ASSET}"
+  checksum_path="${binary_path}.sha256"
 
-curl \
-  --fail \
-  --silent \
-  --show-error \
-  --location \
-  --proto '=https' \
-  --tlsv1.2 \
-  --retry 3 \
-  --retry-delay 1 \
-  --retry-all-errors \
-  --connect-timeout 10 \
-  --max-time 30 \
-  --output "$checksum_path" \
-  "$AGENTCONTEXT_CHECKSUM_URL"
+  printf 'AgentContextMap Action: downloading %s...\n' "$AGENTCONTEXT_TAG"
+  curl \
+    --fail \
+    --silent \
+    --show-error \
+    --location \
+    --proto '=https' \
+    --tlsv1.2 \
+    --retry 3 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --connect-timeout 10 \
+    --max-time 120 \
+    --output "$binary_path" \
+    "$AGENTCONTEXT_RELEASE_URL"
 
-(
-  cd "$work_dir"
-  sha256sum --check --status "${AGENTCONTEXT_ASSET}.sha256"
-) || fail "downloaded release binary failed SHA-256 verification."
-chmod 0755 "$binary_path"
+  curl \
+    --fail \
+    --silent \
+    --show-error \
+    --location \
+    --proto '=https' \
+    --tlsv1.2 \
+    --retry 3 \
+    --retry-delay 1 \
+    --retry-all-errors \
+    --connect-timeout 10 \
+    --max-time 30 \
+    --output "$checksum_path" \
+    "$AGENTCONTEXT_CHECKSUM_URL"
+
+  (
+    cd "$work_dir"
+    sha256sum --check --status "${AGENTCONTEXT_ASSET}.sha256"
+  ) || fail "downloaded release binary failed SHA-256 verification."
+  chmod 0755 "$binary_path"
+fi
 
 args=("$scan_path")
 
