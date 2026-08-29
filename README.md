@@ -27,7 +27,23 @@ AgentContextMap makes that visible without calling an AI model or sending reposi
 
 ## Quick start
 
-Requires Rust 1.74+ while the project is in alpha.
+### Linux x86_64 — download and run
+
+No Rust toolchain is required for the release binary.
+
+**[Download AgentContextMap v0.1.0-alpha.1 for Linux x86_64](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.1.0-alpha.1/AgentContextMap-v0.1.0-alpha.1-linux-x86_64-musl.tar.gz)**
+
+```bash
+tar -xzf AgentContextMap-v0.1.0-alpha.1-linux-x86_64-musl.tar.gz
+./agentcontext --help
+./agentcontext .
+```
+
+The matching `.sha256` checksum is published beside the archive on the release page.
+
+### Install from source
+
+Requires Rust 1.74+.
 
 ```bash
 cargo install --git https://github.com/BLCCoreStudio/AgentContextMap --bin agentcontext
