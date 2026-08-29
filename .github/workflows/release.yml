@@ -63,8 +63,8 @@ jobs:
           sha256sum -c "$BINARY.sha256"
           sha256sum -c "$ARCHIVE.sha256"
 
-          "$BINARY" --version
-          "$BINARY" --help > /dev/null
+          ./"$BINARY" --version
+          ./"$BINARY" --help > /dev/null
 
           echo "BINARY=$BINARY" >> "$GITHUB_ENV"
           echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
