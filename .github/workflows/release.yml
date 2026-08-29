@@ -45,15 +45,28 @@ jobs:
           ./target/x86_64-unknown-linux-musl/release/agentcontext --version
           ./target/x86_64-unknown-linux-musl/release/agentcontext --help
 
-      - name: Package
+      - name: Package release assets
         shell: bash
         run: |
           set -euo pipefail
           VERSION="${GITHUB_REF_NAME}"
+          SOURCE="target/x86_64-unknown-linux-musl/release/agentcontext"
+          BINARY="agentcontext-linux-x86_64"
           ARCHIVE="AgentContextMap-${VERSION}-linux-x86_64-musl.tar.gz"
+
+          cp "$SOURCE" "$BINARY"
+          chmod 0755 "$BINARY"
           tar -C target/x86_64-unknown-linux-musl/release -czf "$ARCHIVE" agentcontext
+
+          sha256sum "$BINARY" > "$BINARY.sha256"
           sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          sha256sum -c "$BINARY.sha256"
           sha256sum -c "$ARCHIVE.sha256"
+
+          "$BINARY" --version
+          "$BINARY" --help > /dev/null
+
+          echo "BINARY=$BINARY" >> "$GITHUB_ENV"
           echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
 
       - name: Create prerelease
@@ -71,13 +84,16 @@ jobs:
           - detects deterministic conflicts only when sources share an agent context
           - emits text, JSON and a self-contained interactive HTML report viewer
           - runs locally without executing repository instructions or sending repository content to an external service
+          - includes a standalone Linux x86_64 binary for download-and-run use, plus the tar.gz archive
 
           See docs/SEMANTICS.md in the tagged source for the verified behavior matrix and known limits.
 
-          Linux asset: portable x86_64 musl binary packaged as a tar.gz archive with SHA-256 checksum.
+          Quickest Linux path: download `agentcontext-linux-x86_64`, mark it executable, and run it. Matching SHA-256 files are provided for both release formats.
           EOF
 
           gh release create "$GITHUB_REF_NAME" \
+            "$BINARY" \
+            "$BINARY.sha256" \
             "$ARCHIVE" \
             "$ARCHIVE.sha256" \
             --title "AgentContextMap $GITHUB_REF_NAME" \
