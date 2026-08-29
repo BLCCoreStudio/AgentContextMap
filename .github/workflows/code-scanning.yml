@@ -1,0 +1,45 @@
+name: AgentContextMap Code Scanning
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: agentcontext-code-scanning-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  agent-context-code-scanning:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Generate AgentContextMap SARIF
+        id: agentcontext
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.1
+        with:
+          path: .
+          sarif: agentcontext.sarif
+
+      - name: Validate SARIF output
+        shell: bash
+        env:
+          SARIF_PATH: ${{ steps.agentcontext.outputs.sarif }}
+        run: |
+          set -euo pipefail
+          test -n "$SARIF_PATH"
+          test -s "$SARIF_PATH"
+          grep -F '"version":"2.1.0"' "$SARIF_PATH" >/dev/null
+
+      - name: Upload SARIF to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        with:
+          sarif_file: ${{ steps.agentcontext.outputs.sarif }}
+          category: agentcontextmap-dogfood
