@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly AGENTCONTEXT_VERSION="0.1.0-alpha.2"
-readonly AGENTCONTEXT_TAG="v${AGENTCONTEXT_VERSION}"
+readonly AGENTCONTEXT_FALLBACK_TAG="v0.1.0-alpha.2"
 readonly AGENTCONTEXT_ASSET="agentcontext-linux-x86_64"
-readonly AGENTCONTEXT_SHA256="34f43883161ae8bdc8220e4ef0aa1226338e4f34ead0c45fadc5534c76578c26"
+
+action_ref="${AGENTCONTEXT_ACTION_REF:-}"
+if [[ "$action_ref" =~ ^v[0-9]+(\.[0-9]+){0,2}(-[0-9A-Za-z.-]+)?$ ]]; then
+  AGENTCONTEXT_TAG="$action_ref"
+else
+  AGENTCONTEXT_TAG="$AGENTCONTEXT_FALLBACK_TAG"
+fi
+readonly AGENTCONTEXT_TAG
 readonly AGENTCONTEXT_RELEASE_URL="https://github.com/BLCCoreStudio/AgentContextMap/releases/download/${AGENTCONTEXT_TAG}/${AGENTCONTEXT_ASSET}"
+readonly AGENTCONTEXT_CHECKSUM_URL="${AGENTCONTEXT_RELEASE_URL}.sha256"
 
 fail() {
   printf 'AgentContextMap Action: %s\n' "$1" >&2
@@ -71,6 +78,7 @@ cleanup() {
 trap cleanup EXIT
 
 binary_path="${work_dir}/${AGENTCONTEXT_ASSET}"
+checksum_path="${binary_path}.sha256"
 
 printf 'AgentContextMap Action: downloading %s...\n' "$AGENTCONTEXT_TAG"
 curl \
@@ -88,8 +96,25 @@ curl \
   --output "$binary_path" \
   "$AGENTCONTEXT_RELEASE_URL"
 
-printf '%s  %s\n' "$AGENTCONTEXT_SHA256" "$binary_path" | sha256sum --check --status \
-  || fail "downloaded release binary failed SHA-256 verification."
+curl \
+  --fail \
+  --silent \
+  --show-error \
+  --location \
+  --proto '=https' \
+  --tlsv1.2 \
+  --retry 3 \
+  --retry-delay 1 \
+  --retry-all-errors \
+  --connect-timeout 10 \
+  --max-time 30 \
+  --output "$checksum_path" \
+  "$AGENTCONTEXT_CHECKSUM_URL"
+
+(
+  cd "$work_dir"
+  sha256sum --check --status "${AGENTCONTEXT_ASSET}.sha256"
+) || fail "downloaded release binary failed SHA-256 verification."
 chmod 0755 "$binary_path"
 
 args=("$scan_path")
