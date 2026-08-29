@@ -30,6 +30,7 @@ runs:
     - name: Run AgentContextMap
       shell: bash
       env:
+        AGENTCONTEXT_ACTION_REF: ${{ github.action_ref }}
         AGENTCONTEXT_INPUT_PATH: ${{ inputs.path }}
         AGENTCONTEXT_INPUT_TARGET: ${{ inputs.target }}
         AGENTCONTEXT_INPUT_FORMAT: ${{ inputs.format }}
