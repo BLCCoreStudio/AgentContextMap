@@ -89,12 +89,7 @@ jobs:
           mkdir -p docs/assets
           cp "$RUNNER_TEMP/report-overview.png" docs/assets/report-overview.png
           cp "$RUNNER_TEMP/report-details.png" docs/assets/report-details.png
-
-          python3 - <<'PY'
-          from PIL import Image
-          src = Image.open('docs/assets/report-overview.png').convert('RGB')
-          src.crop((80, 20, 1360, 660)).save('docs/assets/social-preview.png', optimize=True)
-          PY
+          cp "$RUNNER_TEMP/report-overview.png" docs/assets/social-preview.png
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
