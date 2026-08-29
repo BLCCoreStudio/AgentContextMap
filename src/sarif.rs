@@ -145,11 +145,7 @@ fn find_line_number(analysis: &Analysis, path: &Path, needle: &str) -> Option<us
         .lines()
         .position(|line| {
             let trimmed = line.trim();
-            trimmed == needle
-                || trimmed
-                    .trim_start_matches(['-', '*', '+', ' '])
-                    .trim()
-                    == needle
+            trimmed == needle || trimmed.trim_start_matches(['-', '*', '+', ' ']).trim() == needle
         })
         .map(|index| index + 1)
 }
