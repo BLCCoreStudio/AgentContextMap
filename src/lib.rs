@@ -164,7 +164,7 @@ pub fn analyze(root: &Path, target: Option<&Path>) -> io::Result<Analysis> {
         .iter()
         .map(|source| source.content.chars().count())
         .sum::<usize>();
-    let estimated_tokens = (total_chars + 3) / 4;
+    let estimated_tokens = total_chars.div_ceil(4);
 
     Ok(Analysis {
         root,
@@ -180,7 +180,7 @@ pub fn discover(root: &Path) -> io::Result<Vec<InstructionSource>> {
     let root = fs::canonicalize(root)?;
     let mut sources = Vec::new();
     walk(&root, &root, &mut sources)?;
-    sources.sort_by(|a, b| display_path(&a.path).cmp(&display_path(&b.path)));
+    sources.sort_by_key(|a| display_path(&a.path));
     Ok(sources)
 }
 
@@ -224,7 +224,10 @@ fn should_skip_dir(path: &Path) -> bool {
 fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSource>> {
     let relative = path.strip_prefix(root).unwrap_or(path).to_path_buf();
     let relative_string = display_path(&relative);
-    let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
 
     let identity = if file_name == "AGENTS.md" {
         Some((Agent::Codex, SourceKind::Hierarchical))
@@ -421,7 +424,9 @@ fn detect_findings(sources: &[InstructionSource]) -> Vec<Finding> {
             let left_source = &sources[left.source_index];
             let right_source = &sources[right.source_index];
 
-            if left.source_index == right.source_index || !sources_can_overlap(left_source, right_source) {
+            if left.source_index == right.source_index
+                || !sources_can_overlap(left_source, right_source)
+            {
                 continue;
             }
 
@@ -540,7 +545,7 @@ fn collect_directives(sources: &[InstructionSource]) -> Vec<Directive> {
 
 fn strip_markdown_prefix(line: &str) -> String {
     line.trim()
-        .trim_start_matches(|c: char| matches!(c, '-' | '*' | '+' | '#' | '>' | ' ' | '\t'))
+        .trim_start_matches(['-', '*', '+', '#', '>', ' ', '\t'])
         .trim_start_matches(|c: char| c.is_ascii_digit() || c == '.' || c == ')' || c == ' ')
         .trim()
         .to_string()
@@ -582,15 +587,7 @@ fn detect_polarity(line: &str) -> i8 {
     }
 
     let positive = [
-        "must ",
-        "always ",
-        "required",
-        "require ",
-        "should ",
-        "use ",
-        "enable ",
-        "allow ",
-        "run ",
+        "must ", "always ", "required", "require ", "should ", "use ", "enable ", "allow ", "run ",
     ];
     if positive.iter().any(|needle| line.contains(needle)) {
         return 1;
@@ -612,9 +609,9 @@ fn contains_word(haystack: &str, needle: &str) -> bool {
 
 fn keyword_set(line: &str) -> HashSet<String> {
     const STOPWORDS: &[&str] = &[
-        "a", "an", "and", "are", "as", "at", "be", "before", "by", "do", "dont", "for",
-        "from", "in", "is", "it", "must", "never", "not", "of", "on", "or", "should", "the",
-        "this", "to", "use", "always", "required", "require", "without", "with",
+        "a", "an", "and", "are", "as", "at", "be", "before", "by", "do", "dont", "for", "from",
+        "in", "is", "it", "must", "never", "not", "of", "on", "or", "should", "the", "this", "to",
+        "use", "always", "required", "require", "without", "with",
     ];
 
     line.split_whitespace()
@@ -704,7 +701,10 @@ pub fn render_text(analysis: &Analysis) -> String {
 pub fn render_json(analysis: &Analysis) -> String {
     let mut json = String::new();
     json.push('{');
-    json.push_str(&format!("\"root\":\"{}\",", json_escape(&analysis.root.display().to_string())));
+    json.push_str(&format!(
+        "\"root\":\"{}\",",
+        json_escape(&analysis.root.display().to_string())
+    ));
     match analysis.target.as_deref() {
         Some(target) => json.push_str(&format!(
             "\"target\":\"{}\",",
@@ -910,7 +910,11 @@ mod tests {
     fn detects_opposite_directives_in_overlapping_scopes() {
         let root = temp_root("conflict");
         write(&root, "AGENTS.md", "Always run tests before committing.\n");
-        write(&root, "src/AGENTS.md", "Never run tests before committing.\n");
+        write(
+            &root,
+            "src/AGENTS.md",
+            "Never run tests before committing.\n",
+        );
         write(&root, "src/lib.rs", "pub fn demo() {}\n");
 
         let analysis = analyze(&root, Some(Path::new("src/lib.rs"))).unwrap();
