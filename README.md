@@ -12,17 +12,17 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
 
 <p align="center">
   <a href="docs/assets/report-details.png">
-    <img src="docs/assets/report-overview.png" alt="AgentContextMap v0.1.0 report showing eight instruction sources, activation states, filters and findings" width="100%">
+    <img src="docs/assets/report-overview.png" alt="AgentContextMap report showing instruction sources, activation states, filters and findings" width="100%">
   </a>
 </p>
 
-> **Status:** `v0.1.0` is the current stable GitHub Marketplace release. `main` is `v0.2.0-alpha.2` development and includes SARIF 2.1.0 CLI and GitHub Action output plus a repository-discovery robustness fix for unrelated non-UTF8 files. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
+> **Status:** `v0.2.0` is the stable release prepared for GitHub Marketplace. It includes SARIF 2.1.0 CLI and GitHub Action output, explicit GitHub Code Scanning integration, and more robust discovery in repositories containing unrelated binary or non-UTF8 files. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Use it
 
 | GitHub Actions | Local CLI |
 | --- | --- |
-| Inspect repository instruction sources during CI and optionally fail on high-confidence active conflicts. Current `main` can also write SARIF for Code Scanning. | Inspect locally, emit terminal/JSON output, or generate a self-contained interactive HTML report. Current `main` also supports SARIF 2.1.0 output. |
+| Inspect repository instruction sources during CI, optionally fail on high-confidence active conflicts, and write SARIF for Code Scanning. | Inspect locally, emit terminal/JSON output, write SARIF 2.1.0, or generate a self-contained interactive HTML report. |
 | Linux x86_64 runner | Linux x86_64 standalone binary; source builds may work elsewhere |
 
 ### GitHub Actions
@@ -42,10 +42,10 @@ jobs:
   agent-context:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Inspect coding-agent instructions
-        uses: BLCCoreStudio/AgentContextMap@v0.1.0
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0
         with:
           path: .
           format: terminal
@@ -55,7 +55,7 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 
 ```yaml
       - name: Enforce active instruction conflicts
-        uses: BLCCoreStudio/AgentContextMap@v0.1.0
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0
         with:
           path: .
           target: src/api/auth.rs
@@ -64,21 +64,13 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 
 The composite Action downloads the matching versioned Linux binary and verifies it against the SHA-256 file published with the same release. The requested repository path must remain inside `GITHUB_WORKSPACE`.
 
-### v0.2.0 prerelease preview
+### SARIF and GitHub Code Scanning
 
-The current `main` branch is versioned as `0.2.0-alpha.2`. It adds SARIF 2.1.0 output for GitHub Code Scanning and other SARIF-compatible tooling. These capabilities are **not part of the published stable `v0.1.0` Marketplace release**.
-
-From a source checkout of `main`:
-
-```bash
-cargo run -- . \
-  --target src/api/auth.rs \
-  --sarif agentcontext.sarif
-```
+AgentContextMap can write SARIF 2.1.0 for GitHub Code Scanning and other SARIF-compatible tooling.
 
 Stable rule IDs are `ACM001`–`ACM004`. High, medium, and low findings map to SARIF `error`, `warning`, and `note`.
 
-The v0.2.0 Action accepts a workspace-relative `sarif` path and exposes the generated absolute path as the `sarif` output. For the current prerelease, the Code Scanning wiring is:
+The Action accepts a workspace-relative `sarif` path and exposes the generated absolute path as the `sarif` output:
 
 ```yaml
 name: Agent instruction code scanning
@@ -94,11 +86,11 @@ jobs:
   agent-context:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Generate AgentContextMap SARIF
         id: agentcontext
-        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.2
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0
         with:
           path: .
           sarif: agentcontext.sarif
@@ -116,7 +108,7 @@ The upload remains a separate step intentionally: AgentContextMap itself keeps i
 
 No Rust toolchain and no archive extraction are required.
 
-**[Download `agentcontext-linux-x86_64` from v0.1.0](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.1.0/agentcontext-linux-x86_64)**
+**[Download `agentcontext-linux-x86_64` from v0.2.0](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.2.0/agentcontext-linux-x86_64)**
 
 Then:
 
@@ -177,7 +169,7 @@ Machine-readable JSON output:
 agentcontext . --json
 ```
 
-On current `main` / `v0.2.0-alpha.2` development, write SARIF 2.1.0 without changing the normal terminal output:
+Write SARIF 2.1.0 without changing the normal terminal output:
 
 ```bash
 agentcontext . --target src/api/auth.rs --sarif agentcontext.sarif
@@ -189,7 +181,7 @@ Fail CI only on high-confidence conflicts that are definitely active for the req
 agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 ```
 
-## What v0.1.0 models
+## What v0.2.0 models
 
 | Capability | Support |
 | --- | --- |
@@ -205,13 +197,14 @@ agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 | Agent-aware conflict detection | Yes |
 | Active vs path-specific vs conditional vs manual status | Yes |
 | Missing repository import findings | Yes |
+| Unrelated binary/non-UTF8 repository files ignored during discovery | Yes |
 | JSON output | Yes |
+| SARIF 2.1.0 output with stable `ACM001`–`ACM004` rule IDs | Yes |
+| GitHub Action SARIF file output | Yes |
 | Interactive self-contained HTML viewer | Yes |
 | Executes instructions, tools, prompts, scripts, or MCP servers | **No** |
 | Reads imports outside the scanned repository | **No** |
 | Sends repository content to a remote service | **No** |
-
-SARIF output is intentionally not listed in this table because it was added after the `v0.1.0` tag and is currently v0.2.0 development functionality.
 
 ## Example
 
@@ -253,7 +246,7 @@ Claude/Gemini relative imports are followed only when they remain inside the sca
 
 ## CLI
 
-Stable `v0.1.0` supports the options documented in its tagged README. Current `main` / `v0.2.0-alpha.2` additionally supports `--sarif`:
+`v0.2.0` supports:
 
 ```text
 agentcontext [ROOT] [OPTIONS]
@@ -261,7 +254,7 @@ agentcontext [ROOT] [OPTIONS]
 --target <PATH>        Show sources that can affect a target path
 --json                 Emit machine-readable JSON output
 --html <PATH>          Write a self-contained interactive report viewer
---sarif <PATH>         Write SARIF 2.1.0 (v0.2.0 development)
+--sarif <PATH>         Write SARIF 2.1.0
 --fail-on-conflict     Exit with code 2 on a high-severity active conflict
 -h, --help             Print help
 -V, --version          Print version
