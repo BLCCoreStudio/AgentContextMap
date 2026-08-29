@@ -27,21 +27,23 @@ AgentContextMap answers that without calling an LLM, executing repository instru
 
 ## Quick start
 
-### Linux x86_64 — download and run
+### Linux x86_64 — download one file and run
 
-No Rust toolchain is required for the release binary.
+No Rust toolchain and no archive extraction are required.
 
-**[Download the current public alpha for Linux x86_64](https://github.com/BLCCoreStudio/AgentContextMap/releases/latest)**
+**[Download `agentcontext-linux-x86_64` from v0.1.0-alpha.2](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.1.0-alpha.2/agentcontext-linux-x86_64)**
 
-The release page contains a portable musl archive and matching SHA-256 checksum.
+Then:
 
 ```bash
-tar -xzf AgentContextMap-*-linux-x86_64-musl.tar.gz
-./agentcontext --help
-./agentcontext .
+chmod +x agentcontext-linux-x86_64
+./agentcontext-linux-x86_64 --help
+./agentcontext-linux-x86_64 .
 ```
 
-### Install from source
+Or download it from the [Releases page](https://github.com/BLCCoreStudio/AgentContextMap/releases). Each standalone binary has a matching `.sha256` file. A tar.gz package is also published for users who prefer an archive.
+
+### Build from source
 
 Requires Rust 1.74+.
 
