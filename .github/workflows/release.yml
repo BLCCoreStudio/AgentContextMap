@@ -70,13 +70,15 @@ jobs:
           echo "BINARY=$BINARY" >> "$GITHUB_ENV"
           echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
 
-      - name: Create prerelease
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
+          set -euo pipefail
+
           cat > /tmp/release-notes.md <<'EOF'
-          AgentContextMap prerelease.
+          AgentContextMap release.
 
           Highlights:
           - maps documented repository instruction sources across Codex, Claude Code, Gemini CLI, GitHub Copilot, Cursor, Windsurf and Cline
@@ -92,11 +94,16 @@ jobs:
           Quickest Linux path: download `agentcontext-linux-x86_64`, mark it executable, and run it. Matching SHA-256 files are provided for both release formats.
           EOF
 
+          release_flags=()
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+
           gh release create "$GITHUB_REF_NAME" \
             "$BINARY" \
             "$BINARY.sha256" \
             "$ARCHIVE" \
             "$ARCHIVE.sha256" \
             --title "AgentContextMap $GITHUB_REF_NAME" \
-            --prerelease \
+            "${release_flags[@]}" \
             --notes-file /tmp/release-notes.md
