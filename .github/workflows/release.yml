@@ -18,6 +18,13 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Verify tag matches Cargo version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)"
+          test "$GITHUB_REF_NAME" = "v$VERSION"
+
       - name: Install musl target
         run: |
           sudo apt-get update
@@ -27,11 +34,16 @@ jobs:
       - name: Test
         run: cargo test --locked --all-targets
 
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+
       - name: Build portable Linux binary
         run: cargo build --release --locked --target x86_64-unknown-linux-musl
 
       - name: Verify binary
-        run: ./target/x86_64-unknown-linux-musl/release/agentcontext --version
+        run: |
+          ./target/x86_64-unknown-linux-musl/release/agentcontext --version
+          ./target/x86_64-unknown-linux-musl/release/agentcontext --help
 
       - name: Package
         shell: bash
@@ -41,6 +53,7 @@ jobs:
           ARCHIVE="AgentContextMap-${VERSION}-linux-x86_64-musl.tar.gz"
           tar -C target/x86_64-unknown-linux-musl/release -czf "$ARCHIVE" agentcontext
           sha256sum "$ARCHIVE" > "$ARCHIVE.sha256"
+          sha256sum -c "$ARCHIVE.sha256"
           echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
 
       - name: Create prerelease
@@ -49,16 +62,19 @@ jobs:
         shell: bash
         run: |
           cat > /tmp/release-notes.md <<'EOF'
-          First public alpha of AgentContextMap.
+          AgentContextMap prerelease.
 
           Highlights:
-          - maps repository instructions for Codex/AGENTS.md, Claude Code, Gemini, GitHub Copilot, Cursor, Windsurf and Cline
-          - resolves target-specific instruction scopes
-          - flags deterministic conflicts and duplicate directives
-          - emits text, JSON and self-contained HTML reports
+          - maps documented repository instruction sources across Codex, Claude Code, Gemini CLI, GitHub Copilot, Cursor, Windsurf and Cline
+          - distinguishes active, directory/path-scoped, model-decided and manual sources
+          - expands repository-contained Claude/Gemini imports without reading outside the repository
+          - detects deterministic conflicts only when sources share an agent context
+          - emits text, JSON and a self-contained interactive HTML report viewer
           - runs locally without executing repository instructions or sending repository content to an external service
 
-          Linux asset: portable x86_64 musl binary packaged as a tar.gz archive.
+          See docs/SEMANTICS.md in the tagged source for the verified behavior matrix and known limits.
+
+          Linux asset: portable x86_64 musl binary packaged as a tar.gz archive with SHA-256 checksum.
           EOF
 
           gh release create "$GITHUB_REF_NAME" \
