@@ -1,0 +1,40 @@
+name: Rust Autofix
+
+on:
+  push:
+    branches: ["feat/mvp-context-map"]
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Apply Clippy fixes
+        run: cargo clippy --fix --allow-dirty --allow-staged --all-targets
+
+      - name: Format
+        run: cargo fmt --all
+
+      - name: Commit fixes
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src Cargo.toml Cargo.lock
+          git commit -m "Apply Rust lint and formatting fixes"
+          git push origin HEAD:${{ github.ref_name }}
