@@ -42,23 +42,25 @@ jobs:
           printf 'Never run tests before committing.\n' > "$ROOT/src/AGENTS.md"
           touch "$ROOT/src/api/auth.rs"
 
-      - name: Smoke SARIF from current source
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./target/release/agentcontext .tmp/action-fixture \
-            --target src/api/auth.rs \
-            --sarif .tmp/agentcontext.sarif \
-            > /dev/null
-          grep -F '"version":"2.1.0"' .tmp/agentcontext.sarif
-          grep -F '"ruleId":"ACM001"' .tmp/agentcontext.sarif
-
-      - name: Run Action in report-only mode
+      - name: Run Action with SARIF output
+        id: sarif
         uses: ./
         with:
           path: .tmp/action-fixture
           target: src/api/auth.rs
           format: json
+          sarif: .tmp/agentcontext.sarif
+
+      - name: Assert Action SARIF output
+        shell: bash
+        env:
+          SARIF_PATH: ${{ steps.sarif.outputs.sarif }}
+        run: |
+          set -euo pipefail
+          test "$SARIF_PATH" = "$GITHUB_WORKSPACE/.tmp/agentcontext.sarif"
+          test -f "$SARIF_PATH"
+          grep -F '"version":"2.1.0"' "$SARIF_PATH"
+          grep -F '"ruleId":"ACM001"' "$SARIF_PATH"
 
       - name: Verify conflict gate
         id: conflict-gate
