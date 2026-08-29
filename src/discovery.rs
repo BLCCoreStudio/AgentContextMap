@@ -178,8 +178,7 @@ fn is_supported_source(file_name: &str, relative: &str) -> bool {
         file_name,
         "AGENTS.override.md" | "AGENTS.md" | "agents.md" | "CLAUDE.md" | "GEMINI.md"
     ) || relative == ".github/copilot-instructions.md"
-        || (relative.starts_with(".github/instructions/")
-            && relative.ends_with(".instructions.md"))
+        || (relative.starts_with(".github/instructions/") && relative.ends_with(".instructions.md"))
         || (relative.starts_with(".cursor/rules/") && relative.ends_with(".mdc"))
         || (relative.starts_with(".windsurf/rules/") && relative.ends_with(".md"))
         || (relative.starts_with(".clinerules/")
