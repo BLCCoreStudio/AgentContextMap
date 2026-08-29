@@ -19,20 +19,31 @@ inputs:
     description: "Report format written to the Actions log: terminal or json."
     required: false
     default: "terminal"
+  sarif:
+    description: "Optional workspace-relative path for a SARIF 2.1.0 report, for example agentcontext.sarif."
+    required: false
+    default: ""
   fail-on-conflict:
     description: "Set to true to fail with exit code 2 when a high-confidence active conflict is found."
     required: false
     default: "false"
 
+outputs:
+  sarif:
+    description: "Absolute path to the generated SARIF report when the sarif input is set."
+    value: ${{ steps.run.outputs.sarif }}
+
 runs:
   using: "composite"
   steps:
     - name: Run AgentContextMap
+      id: run
       shell: bash
       env:
         AGENTCONTEXT_ACTION_REF: ${{ github.action_ref }}
         AGENTCONTEXT_INPUT_PATH: ${{ inputs.path }}
         AGENTCONTEXT_INPUT_TARGET: ${{ inputs.target }}
         AGENTCONTEXT_INPUT_FORMAT: ${{ inputs.format }}
+        AGENTCONTEXT_INPUT_SARIF: ${{ inputs.sarif }}
         AGENTCONTEXT_INPUT_FAIL_ON_CONFLICT: ${{ inputs.fail-on-conflict }}
       run: bash "$GITHUB_ACTION_PATH/action-entrypoint.sh"
