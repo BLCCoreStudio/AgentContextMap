@@ -20,6 +20,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build current Action binary
+        run: cargo build --release --locked
+
+      - name: Verify current development version
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(./target/release/agentcontext --version)" = "agentcontext 0.2.0-alpha.1"
+
       - name: Create instruction fixture
         shell: bash
         run: |
@@ -29,6 +41,17 @@ jobs:
           printf 'Always run tests before committing.\n' > "$ROOT/AGENTS.md"
           printf 'Never run tests before committing.\n' > "$ROOT/src/AGENTS.md"
           touch "$ROOT/src/api/auth.rs"
+
+      - name: Smoke SARIF from current source
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./target/release/agentcontext .tmp/action-fixture \
+            --target src/api/auth.rs \
+            --sarif .tmp/agentcontext.sarif \
+            > /dev/null
+          grep -F '"version":"2.1.0"' .tmp/agentcontext.sarif
+          grep -F '"ruleId":"ACM001"' .tmp/agentcontext.sarif
 
       - name: Run Action in report-only mode
         uses: ./
