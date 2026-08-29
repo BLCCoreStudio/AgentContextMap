@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "fix/**", "release/**"]
+    branches: [main, "feat/**", "fix/**", "test/**", "release/**"]
   pull_request:
 
 permissions:
@@ -75,6 +75,84 @@ jobs:
           STATUS=$?
           set -e
           test "$STATUS" -eq 2
+
+      - name: Browser report interaction test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check playwright==1.55.0
+          BROWSER="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$BROWSER" ]; then
+            python3 -m playwright install chromium
+          fi
+          REPORT=/tmp/agentcontext.html BROWSER="$BROWSER" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          report = Path(os.environ['REPORT']).resolve()
+          browser_path = os.environ.get('BROWSER') or None
+
+          def visible_paths(page):
+              return page.locator('.source:visible').evaluate_all(
+                  "cards => cards.map(card => card.dataset.path)"
+              )
+
+          with sync_playwright() as p:
+              args = {'headless': True}
+              if browser_path:
+                  args['executable_path'] = browser_path
+              browser = p.chromium.launch(**args)
+              page = browser.new_page(viewport={'width': 1440, 'height': 1200})
+              page.goto(report.as_uri())
+
+              assert page.locator('.source').count() == 8
+              assert len(visible_paths(page)) == 8
+
+              toggle = page.locator('.source-toggle').first
+              details_id = toggle.get_attribute('aria-controls')
+              toggle.click()
+              assert toggle.get_attribute('aria-expanded') == 'true'
+              details = page.locator(f'#{details_id}')
+              assert details.is_visible()
+              assert 'Instruction text' in details.inner_text()
+              toggle.click()
+              assert toggle.get_attribute('aria-expanded') == 'false'
+              assert not details.is_visible()
+
+              page.locator('.filter[data-agent="cursor"]').click()
+              paths = visible_paths(page)
+              assert '.cursor/rules/api.mdc' in paths
+              assert 'AGENTS.md' in paths
+              assert 'src/AGENTS.md' in paths
+              assert '.clinerules/api.md' not in paths
+
+              page.locator('.filter[data-agent="all"]').click()
+              search = page.locator('#sourceSearch')
+              search.fill('claude')
+              assert visible_paths(page) == ['CLAUDE.md']
+              search.fill('')
+
+              page.locator('#statusFilter').select_option('active')
+              assert len(visible_paths(page)) == 8
+              page.locator('#statusFilter').select_option('all')
+
+              page.locator('.finding-jump').first.click()
+              highlighted = page.locator('.source.highlight').evaluate_all(
+                  "cards => cards.map(card => card.dataset.path).sort()"
+              )
+              assert highlighted == ['AGENTS.md', 'src/AGENTS.md']
+              page.locator('.clear-highlight').click()
+              assert page.locator('.source.highlight').count() == 0
+
+              search.fill('definitely-no-such-source')
+              assert len(visible_paths(page)) == 0
+              assert page.locator('#noResults').evaluate("node => node.classList.contains('show')")
+
+              browser.close()
+
+          print('Browser report interaction test: PASS')
+          PY
 
       - name: Format
         run: cargo fmt --all -- --check
