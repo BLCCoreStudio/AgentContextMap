@@ -85,7 +85,8 @@ jobs:
           - distinguishes active, directory/path-scoped, model-decided and manual sources
           - expands repository-contained Claude/Gemini imports without reading outside the repository
           - detects deterministic conflicts only when sources share an agent context
-          - emits text, JSON and a self-contained interactive HTML report viewer
+          - emits text, JSON, SARIF 2.1.0 and a self-contained interactive HTML report viewer
+          - supports GitHub Action SARIF-file output for explicit Code Scanning upload workflows
           - runs locally without executing repository instructions or sending repository content to an external service
           - includes a standalone Linux x86_64 binary for download-and-run use, plus the tar.gz archive
 
