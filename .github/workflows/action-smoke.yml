@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(./target/release/agentcontext --version)" = "agentcontext 0.2.0-alpha.1"
+          test "$(./target/release/agentcontext --version)" = "agentcontext 0.2.0-alpha.2"
 
       - name: Create instruction fixture
         shell: bash

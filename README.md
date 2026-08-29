@@ -16,7 +16,7 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
   </a>
 </p>
 
-> **Status:** `v0.1.0` is the current stable GitHub Marketplace release. `main` is `v0.2.0-alpha.1` development and includes unreleased SARIF 2.1.0 CLI and GitHub Action output. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
+> **Status:** `v0.1.0` is the current stable GitHub Marketplace release. `main` is `v0.2.0-alpha.2` development and includes SARIF 2.1.0 CLI and GitHub Action output plus a repository-discovery robustness fix for unrelated non-UTF8 files. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Use it
 
@@ -64,9 +64,9 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 
 The composite Action downloads the matching versioned Linux binary and verifies it against the SHA-256 file published with the same release. The requested repository path must remain inside `GITHUB_WORKSPACE`.
 
-### Unreleased v0.2.0 preview
+### v0.2.0 prerelease preview
 
-The current `main` branch is versioned as `0.2.0-alpha.1`. It adds SARIF 2.1.0 output for GitHub Code Scanning and other SARIF-compatible tooling. These capabilities are **not part of the published stable `v0.1.0` Marketplace release**.
+The current `main` branch is versioned as `0.2.0-alpha.2`. It adds SARIF 2.1.0 output for GitHub Code Scanning and other SARIF-compatible tooling. These capabilities are **not part of the published stable `v0.1.0` Marketplace release**.
 
 From a source checkout of `main`:
 
@@ -78,7 +78,7 @@ cargo run -- . \
 
 Stable rule IDs are `ACM001`–`ACM004`. High, medium, and low findings map to SARIF `error`, `warning`, and `note`.
 
-The v0.2.0 Action accepts a workspace-relative `sarif` path and exposes the generated absolute path as the `sarif` output. Once the `v0.2.0-alpha.1` prerelease is available, the Code Scanning wiring is:
+The v0.2.0 Action accepts a workspace-relative `sarif` path and exposes the generated absolute path as the `sarif` output. For the current prerelease, the Code Scanning wiring is:
 
 ```yaml
 name: Agent instruction code scanning
@@ -98,7 +98,7 @@ jobs:
 
       - name: Generate AgentContextMap SARIF
         id: agentcontext
-        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.1
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.2
         with:
           path: .
           sarif: agentcontext.sarif
@@ -177,7 +177,7 @@ Machine-readable JSON output:
 agentcontext . --json
 ```
 
-On current `main` / `v0.2.0-alpha.1` development, write SARIF 2.1.0 without changing the normal terminal output:
+On current `main` / `v0.2.0-alpha.2` development, write SARIF 2.1.0 without changing the normal terminal output:
 
 ```bash
 agentcontext . --target src/api/auth.rs --sarif agentcontext.sarif
@@ -253,7 +253,7 @@ Claude/Gemini relative imports are followed only when they remain inside the sca
 
 ## CLI
 
-Stable `v0.1.0` supports the options documented in its tagged README. Current `main` / `v0.2.0-alpha.1` additionally supports `--sarif`:
+Stable `v0.1.0` supports the options documented in its tagged README. Current `main` / `v0.2.0-alpha.2` additionally supports `--sarif`:
 
 ```text
 agentcontext [ROOT] [OPTIONS]
