@@ -100,6 +100,11 @@ fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSourc
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or("");
+
+    if !is_supported_source(file_name, &relative_string) {
+        return Ok(None);
+    }
+
     let content = fs::read_to_string(path)?;
 
     let mut source = if file_name == "AGENTS.override.md" {
@@ -166,6 +171,20 @@ fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSourc
     }
 
     Ok(Some(source))
+}
+
+fn is_supported_source(file_name: &str, relative: &str) -> bool {
+    matches!(
+        file_name,
+        "AGENTS.override.md" | "AGENTS.md" | "agents.md" | "CLAUDE.md" | "GEMINI.md"
+    ) || relative == ".github/copilot-instructions.md"
+        || (relative.starts_with(".github/instructions/") && relative.ends_with(".instructions.md"))
+        || (relative.starts_with(".cursor/rules/") && relative.ends_with(".mdc"))
+        || (relative.starts_with(".windsurf/rules/") && relative.ends_with(".md"))
+        || (relative.starts_with(".clinerules/")
+            && (relative.ends_with(".md") || relative.ends_with(".txt")))
+        || relative == ".cursorrules"
+        || relative == ".windsurfrules"
 }
 
 fn hierarchical(path: PathBuf, content: String, agents: Vec<Agent>) -> InstructionSource {
@@ -677,5 +696,26 @@ mod tests {
             extract_frontmatter_list(block, "paths"),
             vec!["src/**", "tests/**"]
         );
+    }
+
+    #[test]
+    fn discovery_ignores_unrelated_non_utf8_files() {
+        let root = std::env::temp_dir().join(format!(
+            "agentcontextmap-discovery-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        fs::create_dir_all(&root).expect("create temp repo");
+        fs::write(root.join("AGENTS.md"), "Always run tests.\n").expect("write AGENTS.md");
+        fs::write(root.join("logo.bin"), [0xff, 0xfe, 0xfd]).expect("write binary");
+
+        let sources = discover(&root).expect("unrelated binary files must be ignored");
+        fs::remove_dir_all(&root).expect("cleanup temp repo");
+
+        assert_eq!(sources.len(), 1);
+        assert_eq!(sources[0].path, PathBuf::from("AGENTS.md"));
     }
 }
