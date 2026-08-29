@@ -1,0 +1,5 @@
+/target
+*.html
+.DS_Store
+.idea/
+.vscode/
