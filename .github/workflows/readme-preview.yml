@@ -1,0 +1,93 @@
+name: README preview
+
+on:
+  push:
+    branches: ["docs/readme-visuals"]
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Generate current report fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          TEST_ROOT="$RUNNER_TEMP/agentcontext-demo"
+          mkdir -p \
+            "$TEST_ROOT/src/api" \
+            "$TEST_ROOT/.github/instructions" \
+            "$TEST_ROOT/.cursor/rules" \
+            "$TEST_ROOT/.windsurf/rules" \
+            "$TEST_ROOT/.clinerules" \
+            "$TEST_ROOT/docs"
+
+          printf 'Always run tests before committing.\nUse npm for JavaScript dependencies.\n' > "$TEST_ROOT/AGENTS.md"
+          printf 'Never run tests before committing.\nUse pnpm for JavaScript dependencies.\n' > "$TEST_ROOT/src/AGENTS.md"
+          printf 'Read @./docs/claude.md before changes.\n' > "$TEST_ROOT/CLAUDE.md"
+          printf 'Prefer small, focused changes.\n' > "$TEST_ROOT/docs/claude.md"
+          printf 'Prefer explicit types.\n' > "$TEST_ROOT/GEMINI.md"
+          printf '%s\n' '---' 'applyTo: "src/**"' '---' 'Do not modify generated files.' > "$TEST_ROOT/.github/instructions/source.instructions.md"
+          printf '%s\n' '---' 'globs: "src/api/**"' 'alwaysApply: false' '---' 'API changes must include tests.' > "$TEST_ROOT/.cursor/rules/api.mdc"
+          printf '%s\n' '---' 'trigger: glob' 'globs: src/api/**' '---' 'Use typed API errors.' > "$TEST_ROOT/.windsurf/rules/api.md"
+          printf '%s\n' '---' 'paths:' '  - "src/api/**"' '---' 'Keep handlers small.' > "$TEST_ROOT/.clinerules/api.md"
+          touch "$TEST_ROOT/src/api/auth.rs"
+
+          ./target/release/agentcontext "$TEST_ROOT" \
+            --target src/api/auth.rs \
+            --html "$RUNNER_TEMP/agentcontext.html" >/dev/null
+
+      - name: Capture report screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check playwright==1.55.0
+          BROWSER="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$BROWSER" ]; then
+            python3 -m playwright install chromium
+          fi
+          REPORT="$RUNNER_TEMP/agentcontext.html" BROWSER="$BROWSER" OUT="$RUNNER_TEMP" python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from playwright.sync_api import sync_playwright
+
+          report = Path(os.environ['REPORT']).resolve()
+          out = Path(os.environ['OUT'])
+          browser_path = os.environ.get('BROWSER') or None
+
+          with sync_playwright() as p:
+              kwargs = {'headless': True}
+              if browser_path:
+                  kwargs['executable_path'] = browser_path
+              browser = p.chromium.launch(**kwargs)
+              page = browser.new_page(viewport={'width': 1440, 'height': 900}, device_scale_factor=1)
+              page.goto(report.as_uri())
+              page.screenshot(path=str(out / 'report-overview.png'), full_page=False)
+
+              first = page.locator('.source-toggle').first
+              first.click()
+              page.locator('.finding-jump').first.click()
+              page.screenshot(path=str(out / 'report-details.png'), full_page=True)
+              browser.close()
+          PY
+
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: readme-preview
+          path: |
+            ${{ runner.temp }}/report-overview.png
+            ${{ runner.temp }}/report-details.png
+          if-no-files-found: error
+          retention-days: 1
