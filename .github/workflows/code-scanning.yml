@@ -23,7 +23,7 @@ jobs:
 
       - name: Generate AgentContextMap SARIF
         id: agentcontext
-        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.1
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.2
         with:
           path: .
           sarif: agentcontext.sarif
