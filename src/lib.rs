@@ -35,7 +35,10 @@ pub fn analyze(root: &Path, target: Option<&Path>) -> io::Result<Analysis> {
     });
 
     let findings = findings::detect_findings(&sources, target.as_deref());
-    let total_bytes = sources.iter().map(|source| source.content.len()).sum::<usize>();
+    let total_bytes = sources
+        .iter()
+        .map(|source| source.content.len())
+        .sum::<usize>();
     let total_chars = sources
         .iter()
         .map(|source| source.content.chars().count())
@@ -145,10 +148,20 @@ mod tests {
     fn cursor_plain_markdown_rule_is_not_treated_as_mdc() {
         let root = temp_root("cursor-md");
         write(&root, ".cursor/rules/ignored.md", "Always test.\n");
-        write(&root, ".cursor/rules/used.mdc", "---\nalwaysApply: true\n---\nAlways test.\n");
+        write(
+            &root,
+            ".cursor/rules/used.mdc",
+            "---\nalwaysApply: true\n---\nAlways test.\n",
+        );
         let analysis = analyze(&root, None).unwrap();
-        assert!(analysis.sources.iter().any(|source| source.path.ends_with("used.mdc")));
-        assert!(!analysis.sources.iter().any(|source| source.path.ends_with("ignored.md")));
+        assert!(analysis
+            .sources
+            .iter()
+            .any(|source| source.path.ends_with("used.mdc")));
+        assert!(!analysis
+            .sources
+            .iter()
+            .any(|source| source.path.ends_with("ignored.md")));
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -160,38 +173,82 @@ mod tests {
         let analysis = analyze(&root, Some(Path::new("src/lib.rs"))).unwrap();
         let override_source = source(&analysis, "AGENTS.override.md");
         assert_eq!(override_source.agents, vec![Agent::Codex]);
-        assert!(analysis.findings.iter().any(|finding| finding.kind == FindingKind::Contradiction));
+        assert!(analysis
+            .findings
+            .iter()
+            .any(|finding| finding.kind == FindingKind::Contradiction));
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn windsurf_activation_modes_are_preserved() {
         let root = temp_root("windsurf");
-        write(&root, ".windsurf/rules/always.md", "---\ntrigger: always_on\n---\nAlways test.\n");
-        write(&root, ".windsurf/rules/manual.md", "---\ntrigger: manual\n---\nDeploy carefully.\n");
-        write(&root, ".windsurf/rules/model.md", "---\ntrigger: model_decision\ndescription: API guidance\n---\nUse typed errors.\n");
+        write(
+            &root,
+            ".windsurf/rules/always.md",
+            "---\ntrigger: always_on\n---\nAlways test.\n",
+        );
+        write(
+            &root,
+            ".windsurf/rules/manual.md",
+            "---\ntrigger: manual\n---\nDeploy carefully.\n",
+        );
+        write(
+            &root,
+            ".windsurf/rules/model.md",
+            "---\ntrigger: model_decision\ndescription: API guidance\n---\nUse typed errors.\n",
+        );
         let analysis = analyze(&root, Some(Path::new("src/lib.rs"))).unwrap();
-        assert_eq!(source(&analysis, ".windsurf/rules/always.md").activation_state(analysis.target.as_deref()), ActivationState::Active);
-        assert_eq!(source(&analysis, ".windsurf/rules/manual.md").activation_state(analysis.target.as_deref()), ActivationState::Manual);
-        assert_eq!(source(&analysis, ".windsurf/rules/model.md").activation_state(analysis.target.as_deref()), ActivationState::Conditional);
+        assert_eq!(
+            source(&analysis, ".windsurf/rules/always.md")
+                .activation_state(analysis.target.as_deref()),
+            ActivationState::Active
+        );
+        assert_eq!(
+            source(&analysis, ".windsurf/rules/manual.md")
+                .activation_state(analysis.target.as_deref()),
+            ActivationState::Manual
+        );
+        assert_eq!(
+            source(&analysis, ".windsurf/rules/model.md")
+                .activation_state(analysis.target.as_deref()),
+            ActivationState::Conditional
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn cline_paths_are_target_specific() {
         let root = temp_root("cline");
-        write(&root, ".clinerules/backend.md", "---\npaths:\n  - \"src/api/**\"\n---\nUse typed errors.\n");
+        write(
+            &root,
+            ".clinerules/backend.md",
+            "---\npaths:\n  - \"src/api/**\"\n---\nUse typed errors.\n",
+        );
         write(&root, "src/api/mod.rs", "pub fn api() {}\n");
         write(&root, "README.md", "hello\n");
-        assert_eq!(analyze(&root, Some(Path::new("src/api/mod.rs"))).unwrap().sources.len(), 1);
-        assert!(analyze(&root, Some(Path::new("README.md"))).unwrap().sources.is_empty());
+        assert_eq!(
+            analyze(&root, Some(Path::new("src/api/mod.rs")))
+                .unwrap()
+                .sources
+                .len(),
+            1
+        );
+        assert!(analyze(&root, Some(Path::new("README.md")))
+            .unwrap()
+            .sources
+            .is_empty());
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn claude_and_gemini_repository_imports_are_expanded_and_reported() {
         let root = temp_root("imports");
-        write(&root, "CLAUDE.md", "Read @./docs/claude.md before changes.\n");
+        write(
+            &root,
+            "CLAUDE.md",
+            "Read @./docs/claude.md before changes.\n",
+        );
         write(&root, "docs/claude.md", "Always run cargo test.\n");
         write(&root, "GEMINI.md", "Use @./docs/gemini.md for style.\n");
         write(&root, "docs/gemini.md", "Prefer explicit types.\n");
@@ -200,17 +257,30 @@ mod tests {
         let gemini = source(&analysis, "GEMINI.md");
         assert!(claude.content.contains("Always run cargo test."));
         assert!(gemini.content.contains("Prefer explicit types."));
-        assert!(claude.imports.iter().any(|import| import.status == ImportStatus::Loaded));
-        assert!(gemini.imports.iter().any(|import| import.status == ImportStatus::Loaded));
+        assert!(claude
+            .imports
+            .iter()
+            .any(|import| import.status == ImportStatus::Loaded));
+        assert!(gemini
+            .imports
+            .iter()
+            .any(|import| import.status == ImportStatus::Loaded));
         fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
     fn missing_import_becomes_a_finding() {
         let root = temp_root("missing-import");
-        write(&root, "CLAUDE.md", "Read @./docs/missing.md before changes.\n");
+        write(
+            &root,
+            "CLAUDE.md",
+            "Read @./docs/missing.md before changes.\n",
+        );
         let analysis = analyze(&root, None).unwrap();
-        assert!(analysis.findings.iter().any(|finding| finding.kind == FindingKind::BrokenReference));
+        assert!(analysis
+            .findings
+            .iter()
+            .any(|finding| finding.kind == FindingKind::BrokenReference));
         fs::remove_dir_all(root).unwrap();
     }
 

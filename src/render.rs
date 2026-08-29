@@ -10,7 +10,9 @@ pub fn render_text(analysis: &Analysis) -> String {
     }
     out.push_str(&format!(
         "Sources: {} | Approx. tokens: {} | Findings: {}\n\n",
-        analysis.sources.len(), analysis.estimated_tokens, analysis.findings.len()
+        analysis.sources.len(),
+        analysis.estimated_tokens,
+        analysis.findings.len()
     ));
 
     if analysis.sources.is_empty() {
@@ -72,14 +74,21 @@ pub fn render_text(analysis: &Analysis) -> String {
 pub fn render_json(analysis: &Analysis) -> String {
     let mut json = String::new();
     json.push('{');
-    json.push_str(&format!("\"root\":\"{}\",", json_escape(&analysis.root.display().to_string())));
+    json.push_str(&format!(
+        "\"root\":\"{}\",",
+        json_escape(&analysis.root.display().to_string())
+    ));
     match analysis.target.as_deref() {
-        Some(target) => json.push_str(&format!("\"target\":\"{}\",", json_escape(&display_path(target)))),
+        Some(target) => json.push_str(&format!(
+            "\"target\":\"{}\",",
+            json_escape(&display_path(target))
+        )),
         None => json.push_str("\"target\":null,"),
     }
     json.push_str(&format!(
         "\"source_count\":{},\"estimated_tokens\":{},\"sources\":[",
-        analysis.sources.len(), analysis.estimated_tokens
+        analysis.sources.len(),
+        analysis.estimated_tokens
     ));
 
     for (index, source) in analysis.sources.iter().enumerate() {
@@ -200,7 +209,12 @@ pub fn render_html(analysis: &Analysis) -> String {
     out.push_str("<div class=\"toolbar\"><button class=\"filter active\" type=\"button\" data-agent=\"all\">All</button><button class=\"filter\" type=\"button\" data-agent=\"codex\">Codex</button><button class=\"filter\" type=\"button\" data-agent=\"claude\">Claude</button><button class=\"filter\" type=\"button\" data-agent=\"gemini\">Gemini</button><button class=\"filter\" type=\"button\" data-agent=\"copilot\">Copilot</button><button class=\"filter\" type=\"button\" data-agent=\"cursor\">Cursor</button><button class=\"filter\" type=\"button\" data-agent=\"windsurf\">Windsurf</button><button class=\"filter\" type=\"button\" data-agent=\"cline\">Cline</button><button class=\"clear-highlight\" type=\"button\">Clear highlight</button></div><div class=\"grid\" id=\"sourceGrid\">");
 
     for (index, source) in analysis.sources.iter().enumerate() {
-        let agent_slugs = source.agents.iter().map(|agent| agent.slug()).collect::<Vec<_>>().join(" ");
+        let agent_slugs = source
+            .agents
+            .iter()
+            .map(|agent| agent.slug())
+            .collect::<Vec<_>>()
+            .join(" ");
         let agents = source.agent_labels();
         let state = source.activation_state(analysis.target.as_deref());
         let path = display_path(&source.path);
@@ -218,7 +232,10 @@ pub fn render_html(analysis: &Analysis) -> String {
             index
         ));
         if !source.patterns.is_empty() {
-            out.push_str(&format!("<p><strong>Patterns:</strong> {}</p>", html_escape(&source.patterns.join(", "))));
+            out.push_str(&format!(
+                "<p><strong>Patterns:</strong> {}</p>",
+                html_escape(&source.patterns.join(", "))
+            ));
         }
         if !source.notes.is_empty() {
             out.push_str("<h4>Notes</h4><ul>");
@@ -234,11 +251,18 @@ pub fn render_html(analysis: &Analysis) -> String {
                     ImportStatus::Loaded => format!("{} bytes", import.bytes),
                     _ => import.status.label().to_string(),
                 };
-                out.push_str(&format!("<li>{} — {}</li>", html_escape(&display_path(&import.path)), html_escape(&suffix)));
+                out.push_str(&format!(
+                    "<li>{} — {}</li>",
+                    html_escape(&display_path(&import.path)),
+                    html_escape(&suffix)
+                ));
             }
             out.push_str("</ul>");
         }
-        out.push_str(&format!("<h4>Instruction text</h4><pre>{}</pre></div></article>", html_escape(&source.content)));
+        out.push_str(&format!(
+            "<h4>Instruction text</h4><pre>{}</pre></div></article>",
+            html_escape(&source.content)
+        ));
     }
     out.push_str("</div><div class=\"no-results\" id=\"noResults\">No instruction sources match the current filters.</div></section>");
 
@@ -248,7 +272,11 @@ pub fn render_html(analysis: &Analysis) -> String {
     } else {
         for finding in &analysis.findings {
             let left = display_path(&finding.left_source);
-            let right = finding.right_source.as_ref().map(|path| display_path(path)).unwrap_or_default();
+            let right = finding
+                .right_source
+                .as_ref()
+                .map(|path| display_path(path))
+                .unwrap_or_default();
             out.push_str(&format!(
                 "<article class=\"finding {}\"><div class=\"finding-head\"><strong>{}</strong><span>{}</span></div><p>{}</p><code>{}</code>",
                 finding.severity.label(),

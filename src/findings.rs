@@ -1,4 +1,6 @@
-use crate::model::{ActivationState, Finding, FindingKind, InstructionSource, Severity, SourceKind};
+use crate::model::{
+    ActivationState, Finding, FindingKind, InstructionSource, Severity, SourceKind,
+};
 use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
 
@@ -20,7 +22,10 @@ pub fn detect_findings(sources: &[InstructionSource], target: Option<&Path>) -> 
     for (source_index, source) in sources.iter().enumerate() {
         for import in &source.imports {
             if matches!(import.status, crate::model::ImportStatus::Missing) {
-                let key = format!("ref:{source_index}:{}", crate::model::display_path(&import.path));
+                let key = format!(
+                    "ref:{source_index}:{}",
+                    crate::model::display_path(&import.path)
+                );
                 if seen.insert(key) {
                     findings.push(Finding {
                         kind: FindingKind::BrokenReference,
@@ -29,7 +34,9 @@ pub fn detect_findings(sources: &[InstructionSource], target: Option<&Path>) -> 
                         right_source: None,
                         left_line: format!("@{}", crate::model::display_path(&import.path)),
                         right_line: None,
-                        summary: "Referenced instruction import could not be loaded from the repository.".to_string(),
+                        summary:
+                            "Referenced instruction import could not be loaded from the repository."
+                                .to_string(),
                     });
                 }
             }
@@ -59,7 +66,8 @@ pub fn detect_findings(sources: &[InstructionSource], target: Option<&Path>) -> 
                         right_source: Some(right_source.path.clone()),
                         left_line: left.line.clone(),
                         right_line: Some(right.line.clone()),
-                        summary: "The same directive appears in overlapping instruction sources.".to_string(),
+                        summary: "The same directive appears in overlapping instruction sources."
+                            .to_string(),
                     });
                 }
                 continue;
@@ -105,7 +113,8 @@ pub fn detect_findings(sources: &[InstructionSource], target: Option<&Path>) -> 
                         right_source: Some(right_source.path.clone()),
                         left_line: left.line.clone(),
                         right_line: Some(right.line.clone()),
-                        summary: "Overlapping sources contain directives with opposite polarity.".to_string(),
+                        summary: "Overlapping sources contain directives with opposite polarity."
+                            .to_string(),
                     });
                 }
             }
@@ -154,7 +163,11 @@ fn collect_directives(sources: &[InstructionSource]) -> Vec<Directive> {
     directives
 }
 
-fn sources_can_overlap(left: &InstructionSource, right: &InstructionSource, target: Option<&Path>) -> bool {
+fn sources_can_overlap(
+    left: &InstructionSource,
+    right: &InstructionSource,
+    target: Option<&Path>,
+) -> bool {
     if !left.agents.iter().any(|agent| right.agents.contains(agent)) {
         return false;
     }
@@ -175,19 +188,30 @@ fn sources_can_overlap(left: &InstructionSource, right: &InstructionSource, targ
     }
 }
 
-fn conflict_severity(left: &InstructionSource, right: &InstructionSource, target: Option<&Path>) -> Severity {
+fn conflict_severity(
+    left: &InstructionSource,
+    right: &InstructionSource,
+    target: Option<&Path>,
+) -> Severity {
     let left_state = left.activation_state(target);
     let right_state = right.activation_state(target);
     if left_state.definite_for_target() && right_state.definite_for_target() {
         Severity::High
-    } else if matches!(left_state, ActivationState::Manual) || matches!(right_state, ActivationState::Manual) {
+    } else if matches!(left_state, ActivationState::Manual)
+        || matches!(right_state, ActivationState::Manual)
+    {
         Severity::Low
     } else {
         Severity::Medium
     }
 }
 
-fn canonical_key(kind: &str, left: &InstructionSource, right: &InstructionSource, detail: &str) -> String {
+fn canonical_key(
+    kind: &str,
+    left: &InstructionSource,
+    right: &InstructionSource,
+    detail: &str,
+) -> String {
     let left_path = crate::model::display_path(&left.path);
     let right_path = crate::model::display_path(&right.path);
     if left_path <= right_path {
@@ -200,7 +224,13 @@ fn canonical_key(kind: &str, left: &InstructionSource, right: &InstructionSource
 fn normalize(line: &str) -> String {
     line.to_lowercase()
         .chars()
-        .map(|ch| if ch.is_alphanumeric() || ch == '-' { ch } else { ' ' })
+        .map(|ch| {
+            if ch.is_alphanumeric() || ch == '-' {
+                ch
+            } else {
+                ' '
+            }
+        })
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<_>>()
@@ -208,11 +238,24 @@ fn normalize(line: &str) -> String {
 }
 
 fn polarity(line: &str) -> i8 {
-    let negative_phrases = ["never ", "do not ", "don't ", "must not ", "avoid ", "forbid ", "forbidden "];
-    if negative_phrases.iter().any(|phrase| line.starts_with(phrase) || line.contains(&format!(" {phrase}"))) {
+    let negative_phrases = [
+        "never ",
+        "do not ",
+        "don't ",
+        "must not ",
+        "avoid ",
+        "forbid ",
+        "forbidden ",
+    ];
+    if negative_phrases
+        .iter()
+        .any(|phrase| line.starts_with(phrase) || line.contains(&format!(" {phrase}")))
+    {
         return -1;
     }
-    let positive_words = ["always", "must", "required", "require", "use", "run", "prefer", "should"];
+    let positive_words = [
+        "always", "must", "required", "require", "use", "run", "prefer", "should",
+    ];
     if positive_words.iter().any(|word| contains_word(line, word)) {
         return 1;
     }
@@ -272,8 +315,16 @@ mod tests {
     #[test]
     fn does_not_report_cross_agent_conflicts() {
         let sources = vec![
-            source("CLAUDE.md", Agent::Claude, "Always run tests before committing."),
-            source("GEMINI.md", Agent::Gemini, "Never run tests before committing."),
+            source(
+                "CLAUDE.md",
+                Agent::Claude,
+                "Always run tests before committing.",
+            ),
+            source(
+                "GEMINI.md",
+                Agent::Gemini,
+                "Never run tests before committing.",
+            ),
         ];
         assert!(detect_findings(&sources, Some(Path::new("src/lib.rs"))).is_empty());
     }
@@ -281,10 +332,17 @@ mod tests {
     #[test]
     fn reports_same_agent_conflict_as_high_for_target() {
         let sources = vec![
-            source("one.md", Agent::Codex, "Always run tests before committing."),
+            source(
+                "one.md",
+                Agent::Codex,
+                "Always run tests before committing.",
+            ),
             source("two.md", Agent::Codex, "Never run tests before committing."),
         ];
         let findings = detect_findings(&sources, Some(Path::new("src/lib.rs")));
-        assert!(findings.iter().any(|finding| finding.kind == FindingKind::Contradiction && finding.severity == Severity::High));
+        assert!(findings
+            .iter()
+            .any(|finding| finding.kind == FindingKind::Contradiction
+                && finding.severity == Severity::High));
     }
 }

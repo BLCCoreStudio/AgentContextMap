@@ -24,7 +24,12 @@ pub fn normalize_target(root: &Path, target: &Path) -> io::Result<PathBuf> {
         return canonical
             .strip_prefix(root)
             .map(Path::to_path_buf)
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "target is outside repository root"));
+            .map_err(|_| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "target is outside repository root",
+                )
+            });
     }
 
     let mut normalized = PathBuf::new();
@@ -91,7 +96,10 @@ fn should_skip_dir(path: &Path) -> bool {
 fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSource>> {
     let relative = path.strip_prefix(root).unwrap_or(path).to_path_buf();
     let relative_string = crate::model::display_path(&relative);
-    let file_name = path.file_name().and_then(|name| name.to_str()).unwrap_or("");
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("");
     let content = fs::read_to_string(path)?;
 
     let mut source = if file_name == "AGENTS.override.md" {
@@ -100,7 +108,13 @@ fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSourc
         hierarchical(
             relative,
             content,
-            vec![Agent::Codex, Agent::Copilot, Agent::Cursor, Agent::Windsurf, Agent::Cline],
+            vec![
+                Agent::Codex,
+                Agent::Copilot,
+                Agent::Cursor,
+                Agent::Windsurf,
+                Agent::Cline,
+            ],
         )
     } else if file_name == "agents.md" {
         let mut source = hierarchical(relative, content, vec![Agent::Windsurf]);
@@ -118,7 +132,10 @@ fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSourc
         let patterns = extract_frontmatter_list(&content, "applyTo");
         let mut source = pattern(relative, content, vec![Agent::Copilot], patterns);
         if source.patterns.is_empty() {
-            source.notes.push("Missing applyTo frontmatter; GitHub path-specific instructions require applyTo.".to_string());
+            source.notes.push(
+                "Missing applyTo frontmatter; GitHub path-specific instructions require applyTo."
+                    .to_string(),
+            );
             source.kind = SourceKind::ModelDecision;
         }
         source
@@ -132,7 +149,9 @@ fn detect_source(root: &Path, path: &Path) -> io::Result<Option<InstructionSourc
         cline_rule(relative, content)
     } else if relative_string == ".cursorrules" {
         let mut source = workspace(relative, content, vec![Agent::Cline]);
-        source.notes.push("Cline compatibility source: .cursorrules is auto-detected by Cline.".to_string());
+        source.notes.push(
+            "Cline compatibility source: .cursorrules is auto-detected by Cline.".to_string(),
+        );
         source
     } else if relative_string == ".windsurfrules" {
         let mut source = workspace(relative, content, vec![Agent::Cline]);
@@ -178,7 +197,12 @@ fn workspace(path: PathBuf, content: String, agents: Vec<Agent>) -> InstructionS
     }
 }
 
-fn pattern(path: PathBuf, content: String, agents: Vec<Agent>, patterns: Vec<String>) -> InstructionSource {
+fn pattern(
+    path: PathBuf,
+    content: String,
+    agents: Vec<Agent>,
+    patterns: Vec<String>,
+) -> InstructionSource {
     InstructionSource {
         bytes: content.len(),
         path,
@@ -211,7 +235,9 @@ fn cursor_rule(path: PathBuf, content: String) -> InstructionSource {
     } else {
         let mut source = workspace(path, content, vec![Agent::Cursor]);
         source.kind = SourceKind::Manual;
-        source.notes.push("Cursor rule has no automatic activation metadata; modeled as manual.".to_string());
+        source.notes.push(
+            "Cursor rule has no automatic activation metadata; modeled as manual.".to_string(),
+        );
         source
     }
 }
@@ -225,7 +251,10 @@ fn windsurf_rule(path: PathBuf, content: String) -> InstructionSource {
             let mut source = pattern(path, content, vec![Agent::Windsurf], globs);
             if source.patterns.is_empty() {
                 source.kind = SourceKind::ModelDecision;
-                source.notes.push("Windsurf glob rule is missing globs; activation cannot be resolved exactly.".to_string());
+                source.notes.push(
+                    "Windsurf glob rule is missing globs; activation cannot be resolved exactly."
+                        .to_string(),
+                );
             }
             source
         }
@@ -351,14 +380,14 @@ fn split_patterns(value: &str) -> Vec<String> {
 }
 
 fn strip_quotes(value: &str) -> &str {
-    value
-        .trim()
-        .trim_matches('"')
-        .trim_matches('\'')
-        .trim()
+    value.trim().trim_matches('"').trim_matches('\'').trim()
 }
 
-fn expand_repository_imports(root: &Path, source_path: &Path, source: &mut InstructionSource) -> io::Result<()> {
+fn expand_repository_imports(
+    root: &Path,
+    source_path: &Path,
+    source: &mut InstructionSource,
+) -> io::Result<()> {
     let mut seen = HashSet::new();
     seen.insert(fs::canonicalize(source_path)?);
     let mut expanded = source.content.clone();
@@ -411,7 +440,10 @@ fn expand_imports_recursive(
             Ok(path) => path,
             Err(_) => {
                 imports.push(ImportRef {
-                    path: candidate.strip_prefix(root).unwrap_or(&candidate).to_path_buf(),
+                    path: candidate
+                        .strip_prefix(root)
+                        .unwrap_or(&candidate)
+                        .to_path_buf(),
                     status: ImportStatus::Missing,
                     bytes: 0,
                 });
@@ -435,14 +467,20 @@ fn expand_imports_recursive(
             Ok(content) => content,
             Err(_) => {
                 imports.push(ImportRef {
-                    path: canonical.strip_prefix(root).unwrap_or(&canonical).to_path_buf(),
+                    path: canonical
+                        .strip_prefix(root)
+                        .unwrap_or(&canonical)
+                        .to_path_buf(),
                     status: ImportStatus::Missing,
                     bytes: 0,
                 });
                 continue;
             }
         };
-        let relative = canonical.strip_prefix(root).unwrap_or(&canonical).to_path_buf();
+        let relative = canonical
+            .strip_prefix(root)
+            .unwrap_or(&canonical)
+            .to_path_buf();
         imports.push(ImportRef {
             path: relative.clone(),
             status: ImportStatus::Loaded,
@@ -452,7 +490,15 @@ fn expand_imports_recursive(
         expanded.push_str(&crate::model::display_path(&relative));
         expanded.push('\n');
         expanded.push_str(&imported);
-        expand_imports_recursive(root, &canonical, &imported, depth + 1, seen, imports, expanded)?;
+        expand_imports_recursive(
+            root,
+            &canonical,
+            &imported,
+            depth + 1,
+            seen,
+            imports,
+            expanded,
+        )?;
     }
     Ok(())
 }
@@ -474,7 +520,9 @@ fn import_tokens(content: &str) -> Vec<String> {
                 continue;
             }
             let cleaned = word
-                .trim_matches(|ch: char| matches!(ch, ',' | ';' | ':' | ')' | ']' | '}' | '"' | '\''))
+                .trim_matches(|ch: char| {
+                    matches!(ch, ',' | ';' | ':' | ')' | ']' | '}' | '"' | '\'')
+                })
                 .to_string();
             if cleaned.contains('.') || cleaned.contains('/') || cleaned.starts_with("@README") {
                 result.push(cleaned);
@@ -553,9 +601,7 @@ fn glob_step(
                     && glob_step(pattern, text, pi, ti + 1, failed))
         }
     } else if pattern[pi] == b'?' {
-        ti < text.len()
-            && text[ti] != b'/'
-            && glob_step(pattern, text, pi + 1, ti + 1, failed)
+        ti < text.len() && text[ti] != b'/' && glob_step(pattern, text, pi + 1, ti + 1, failed)
     } else if pattern[pi] == b'[' {
         match_class(pattern, text, pi, ti, failed)
     } else {
@@ -627,6 +673,9 @@ mod tests {
         let inline = "---\nglobs: [\"**/*.ts\", \"src/**\"]\n---\nbody";
         assert_eq!(extract_frontmatter_list(inline, "globs").len(), 2);
         let block = "---\npaths:\n  - \"src/**\"\n  - tests/**\n---\nbody";
-        assert_eq!(extract_frontmatter_list(block, "paths"), vec!["src/**", "tests/**"]);
+        assert_eq!(
+            extract_frontmatter_list(block, "paths"),
+            vec!["src/**", "tests/**"]
+        );
     }
 }
