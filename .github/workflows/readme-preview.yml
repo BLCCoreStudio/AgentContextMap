@@ -5,7 +5,7 @@ on:
     branches: ["docs/readme-visuals"]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   preview:
@@ -48,7 +48,7 @@ jobs:
             --target src/api/auth.rs \
             --html "$RUNNER_TEMP/agentcontext.html" >/dev/null
 
-      - name: Capture report screenshots
+      - name: Capture current report screenshots
         shell: bash
         run: |
           set -euo pipefail
@@ -82,12 +82,23 @@ jobs:
               browser.close()
           PY
 
-      - name: Upload preview artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: readme-preview
-          path: |
-            ${{ runner.temp }}/report-overview.png
-            ${{ runner.temp }}/report-details.png
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit generated visuals and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p docs/assets
+          cp "$RUNNER_TEMP/report-overview.png" docs/assets/report-overview.png
+          cp "$RUNNER_TEMP/report-details.png" docs/assets/report-details.png
+
+          python3 - <<'PY'
+          from PIL import Image
+          src = Image.open('docs/assets/report-overview.png').convert('RGB')
+          src.crop((80, 20, 1360, 660)).save('docs/assets/social-preview.png', optimize=True)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/assets/report-overview.png docs/assets/report-details.png docs/assets/social-preview.png
+          git rm .github/workflows/readme-preview.yml
+          git commit -m "Add current report visuals"
+          git push
