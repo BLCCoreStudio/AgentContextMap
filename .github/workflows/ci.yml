@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feat/**", "release/**"]
+    branches: [main, "feat/**", "fix/**", "release/**"]
   pull_request:
 
 permissions:
@@ -34,28 +34,44 @@ jobs:
         run: |
           set -euo pipefail
           TEST_ROOT="$(mktemp -d)"
-          mkdir -p "$TEST_ROOT/src/api" "$TEST_ROOT/.github/instructions" "$TEST_ROOT/.cursor/rules"
+          mkdir -p \
+            "$TEST_ROOT/src/api" \
+            "$TEST_ROOT/.github/instructions" \
+            "$TEST_ROOT/.cursor/rules" \
+            "$TEST_ROOT/.windsurf/rules" \
+            "$TEST_ROOT/.clinerules" \
+            "$TEST_ROOT/docs"
 
           printf 'Always run tests before committing.\nUse npm for JavaScript dependencies.\n' > "$TEST_ROOT/AGENTS.md"
           printf 'Never run tests before committing.\nUse pnpm for JavaScript dependencies.\n' > "$TEST_ROOT/src/AGENTS.md"
-          printf 'Prefer small, focused changes.\n' > "$TEST_ROOT/CLAUDE.md"
+          printf 'Read @./docs/claude.md before changes.\n' > "$TEST_ROOT/CLAUDE.md"
+          printf 'Prefer small, focused changes.\n' > "$TEST_ROOT/docs/claude.md"
+          printf 'Prefer explicit types.\n' > "$TEST_ROOT/GEMINI.md"
           printf '%s\n' '---' 'applyTo: "src/**"' '---' 'Do not modify generated files.' > "$TEST_ROOT/.github/instructions/source.instructions.md"
-          printf '%s\n' '---' 'globs: "src/api/**"' '---' 'API changes must include tests.' > "$TEST_ROOT/.cursor/rules/api.mdc"
+          printf '%s\n' '---' 'globs: "src/api/**"' 'alwaysApply: false' '---' 'API changes must include tests.' > "$TEST_ROOT/.cursor/rules/api.mdc"
+          printf '%s\n' '---' 'trigger: glob' 'globs: src/api/**' '---' 'Use typed API errors.' > "$TEST_ROOT/.windsurf/rules/api.md"
+          printf '%s\n' '---' 'paths:' '  - "src/api/**"' '---' 'Keep handlers small.' > "$TEST_ROOT/.clinerules/api.md"
           touch "$TEST_ROOT/src/api/auth.rs"
 
           ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs > /tmp/agentcontext.txt
-          grep -q 'Sources: 5' /tmp/agentcontext.txt
+          grep -q 'Sources: 8' /tmp/agentcontext.txt
           grep -q 'Findings: 2' /tmp/agentcontext.txt
+          grep -q 'Status: active' /tmp/agentcontext.txt
+          grep -q 'Imports:' /tmp/agentcontext.txt
 
           ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs --json > /tmp/agentcontext.json
-          grep -q '"source_count":5' /tmp/agentcontext.json
+          grep -q '"source_count":8' /tmp/agentcontext.json
+          grep -q '"status":"active"' /tmp/agentcontext.json
+          grep -q 'docs/claude.md' /tmp/agentcontext.json
 
           ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs --html /tmp/agentcontext.html > /dev/null
           test -s /tmp/agentcontext.html
-          grep -q 'See what instructions your coding agents can see.' /tmp/agentcontext.html
+          grep -q 'This page is a report viewer' /tmp/agentcontext.html
+          grep -q 'source-toggle' /tmp/agentcontext.html
+          grep -q 'Highlight involved sources' /tmp/agentcontext.html
 
           set +e
-          ./target/release/agentcontext "$TEST_ROOT" --fail-on-conflict > /dev/null
+          ./target/release/agentcontext "$TEST_ROOT" --target src/api/auth.rs --fail-on-conflict > /dev/null
           STATUS=$?
           set -e
           test "$STATUS" -eq 2
