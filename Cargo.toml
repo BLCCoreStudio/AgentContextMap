@@ -1,0 +1,20 @@
+[package]
+name = "agentcontextmap"
+version = "0.1.0-alpha.1"
+edition = "2021"
+rust-version = "1.74"
+description = "Map the repository instructions that coding agents can see."
+license = "MIT"
+repository = "https://github.com/BLCCoreStudio/AgentContextMap"
+readme = "README.md"
+keywords = ["ai-agents", "codex", "claude", "developer-tools", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "agentcontext"
+path = "src/main.rs"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
