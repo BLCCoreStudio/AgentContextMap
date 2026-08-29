@@ -1,4 +1,4 @@
-use crate::model::{display_path, Analysis, Finding, FindingKind, Severity};
+use agentcontextmap::{Analysis, Finding, FindingKind, Severity};
 use std::path::Path;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -154,6 +154,15 @@ fn find_line_number(analysis: &Analysis, path: &Path, needle: &str) -> Option<us
         .map(|index| index + 1)
 }
 
+fn display_path(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('\\', "/");
+    if text.is_empty() {
+        ".".to_string()
+    } else {
+        text
+    }
+}
+
 fn rule_for(kind: FindingKind) -> (&'static str, usize) {
     match kind {
         FindingKind::Contradiction => ("ACM001", 0),
@@ -192,7 +201,7 @@ fn json_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Agent, InstructionSource, SourceKind};
+    use agentcontextmap::{Agent, InstructionSource, SourceKind};
     use std::path::PathBuf;
 
     fn analysis_with_conflict() -> Analysis {
