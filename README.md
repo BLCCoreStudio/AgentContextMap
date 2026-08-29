@@ -16,13 +16,13 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
   </a>
 </p>
 
-> **Status:** `v0.1.0` is the current stable GitHub Marketplace release. `main` is now `v0.2.0-alpha.1` development and includes unreleased SARIF 2.1.0 CLI output. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
+> **Status:** `v0.1.0` is the current stable GitHub Marketplace release. `main` is `v0.2.0-alpha.1` development and includes unreleased SARIF 2.1.0 CLI and GitHub Action output. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Use it
 
 | GitHub Actions | Local CLI |
 | --- | --- |
-| Inspect repository instruction sources during CI and optionally fail on high-confidence active conflicts. | Inspect locally, emit terminal/JSON output, or generate a self-contained interactive HTML report. Current `main` also supports unreleased SARIF 2.1.0 output. |
+| Inspect repository instruction sources during CI and optionally fail on high-confidence active conflicts. Current `main` can also write SARIF for Code Scanning. | Inspect locally, emit terminal/JSON output, or generate a self-contained interactive HTML report. Current `main` also supports SARIF 2.1.0 output. |
 | Linux x86_64 runner | Linux x86_64 standalone binary; source builds may work elsewhere |
 
 ### GitHub Actions
@@ -66,7 +66,7 @@ The composite Action downloads the matching versioned Linux binary and verifies 
 
 ### Unreleased v0.2.0 preview
 
-The current `main` branch is versioned as `0.2.0-alpha.1`. It adds SARIF 2.1.0 output to the CLI for GitHub Code Scanning and other SARIF-compatible tooling. This capability is **not part of the published `v0.1.0` Marketplace release yet**.
+The current `main` branch is versioned as `0.2.0-alpha.1`. It adds SARIF 2.1.0 output for GitHub Code Scanning and other SARIF-compatible tooling. These capabilities are **not part of the published stable `v0.1.0` Marketplace release**.
 
 From a source checkout of `main`:
 
@@ -76,7 +76,41 @@ cargo run -- . \
   --sarif agentcontext.sarif
 ```
 
-Stable rule IDs are `ACM001`–`ACM004`. High, medium, and low findings map to SARIF `error`, `warning`, and `note`. GitHub Action SARIF-file output and documented `github/codeql-action/upload-sarif` wiring are planned before the stable `v0.2.0` release.
+Stable rule IDs are `ACM001`–`ACM004`. High, medium, and low findings map to SARIF `error`, `warning`, and `note`.
+
+The v0.2.0 Action accepts a workspace-relative `sarif` path and exposes the generated absolute path as the `sarif` output. Once the `v0.2.0-alpha.1` prerelease is available, the Code Scanning wiring is:
+
+```yaml
+name: Agent instruction code scanning
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  agent-context:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Generate AgentContextMap SARIF
+        id: agentcontext
+        uses: BLCCoreStudio/AgentContextMap@v0.2.0-alpha.1
+        with:
+          path: .
+          sarif: agentcontext.sarif
+
+      - name: Upload AgentContextMap SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.agentcontext.outputs.sarif }}
+```
+
+The upload remains a separate step intentionally: AgentContextMap itself keeps its default workflow permission needs at `contents: read`, while repositories that opt into GitHub Code Scanning explicitly grant `security-events: write`.
 
 ### Linux x86_64 — download one file and run
 
@@ -177,7 +211,7 @@ agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 | Reads imports outside the scanned repository | **No** |
 | Sends repository content to a remote service | **No** |
 
-SARIF output is intentionally not listed in this table because it was added after the `v0.1.0` tag and is currently unreleased development functionality.
+SARIF output is intentionally not listed in this table because it was added after the `v0.1.0` tag and is currently v0.2.0 development functionality.
 
 ## Example
 
@@ -227,7 +261,7 @@ agentcontext [ROOT] [OPTIONS]
 --target <PATH>        Show sources that can affect a target path
 --json                 Emit machine-readable JSON output
 --html <PATH>          Write a self-contained interactive report viewer
---sarif <PATH>         Write SARIF 2.1.0 (main / upcoming v0.2.0)
+--sarif <PATH>         Write SARIF 2.1.0 (v0.2.0 development)
 --fail-on-conflict     Exit with code 2 on a high-severity active conflict
 -h, --help             Print help
 -V, --version          Print version
@@ -253,7 +287,7 @@ Near-term work is focused on correctness rather than adding every format possibl
 2. broader real-repository compatibility fixtures;
 3. richer conflict classes with measured false-positive rates;
 4. per-agent context-budget breakdown;
-5. GitHub Action SARIF output plus `github/codeql-action/upload-sarif` integration;
+5. SARIF baseline/suppression ergonomics and richer rule help;
 6. release attestations, easier package-manager installs, and broader runner support.
 
 ## Contributing and support

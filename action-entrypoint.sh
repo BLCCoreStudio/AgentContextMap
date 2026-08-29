@@ -53,6 +53,7 @@ fi
 scan_path="${AGENTCONTEXT_INPUT_PATH:-.}"
 target_path="${AGENTCONTEXT_INPUT_TARGET:-}"
 report_format="${AGENTCONTEXT_INPUT_FORMAT:-terminal}"
+sarif_input="${AGENTCONTEXT_INPUT_SARIF:-}"
 fail_on_conflict="${AGENTCONTEXT_INPUT_FAIL_ON_CONFLICT:-false}"
 
 case "$report_format" in
@@ -74,6 +75,7 @@ esac
 [[ -d "$scan_path" ]] || fail "path must point to an existing directory."
 scan_path="$(realpath -e -- "$scan_path")" || fail "path could not be resolved."
 
+workspace=""
 if [[ -n "${GITHUB_WORKSPACE:-}" ]]; then
   workspace="$(realpath -e -- "$GITHUB_WORKSPACE")" || fail "GITHUB_WORKSPACE could not be resolved."
   case "${scan_path}/" in
@@ -83,6 +85,24 @@ if [[ -n "${GITHUB_WORKSPACE:-}" ]]; then
       fail "path must stay inside GITHUB_WORKSPACE."
       ;;
   esac
+fi
+
+sarif_path=""
+if [[ -n "$sarif_input" ]]; then
+  [[ -n "$workspace" ]] || fail "sarif output requires GITHUB_WORKSPACE."
+  [[ "$sarif_input" != /* ]] || fail "sarif must be a workspace-relative path."
+  [[ "$sarif_input" != *$'\n'* && "$sarif_input" != *$'\r'* ]] \
+    || fail "sarif path must not contain newlines."
+
+  sarif_path="$(realpath -m -- "${workspace}/${sarif_input}")" || fail "sarif path could not be resolved."
+  case "$sarif_path" in
+    "${workspace}/"*)
+      ;;
+    *)
+      fail "sarif output must stay inside GITHUB_WORKSPACE."
+      ;;
+  esac
+  mkdir -p -- "$(dirname -- "$sarif_path")"
 fi
 
 if [[ "$use_local_binary" == "true" ]]; then
@@ -148,6 +168,13 @@ fi
 
 if [[ "$report_format" == "json" ]]; then
   args+=(--json)
+fi
+
+if [[ -n "$sarif_path" ]]; then
+  args+=(--sarif "$sarif_path")
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    printf 'sarif=%s\n' "$sarif_path" >> "$GITHUB_OUTPUT"
+  fi
 fi
 
 if [[ "$fail_on_conflict" == "true" ]]; then
