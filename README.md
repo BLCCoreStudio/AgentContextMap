@@ -12,11 +12,11 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
 
 <p align="center">
   <a href="docs/assets/report-details.png">
-    <img src="docs/assets/report-overview.png" alt="AgentContextMap alpha.2 report showing eight instruction sources, activation states, filters and findings" width="100%">
+    <img src="docs/assets/report-overview.png" alt="AgentContextMap v0.1.0 report showing eight instruction sources, activation states, filters and findings" width="100%">
   </a>
 </p>
 
-> **Status:** early alpha. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
+> **Status:** early release. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Use it
 
@@ -25,9 +25,9 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
 | Inspect repository instruction sources during CI and optionally fail on high-confidence active conflicts. | Inspect locally, emit terminal/JSON output, or generate a self-contained interactive HTML report. |
 | Linux x86_64 runner | Linux x86_64 standalone binary; source builds may work elsewhere |
 
-### GitHub Actions — early-alpha integration
+### GitHub Actions
 
-The Action is available from the repository development line. Until a versioned Action release is cut, `@main` is intended for evaluation; pin a full commit SHA for trusted production workflows.
+Use the versioned release tag for normal workflows. Pin a full commit SHA when your security policy requires immutable third-party Action references.
 
 ```yaml
 name: Agent instruction check
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Inspect coding-agent instructions
-        uses: BLCCoreStudio/AgentContextMap@main
+        uses: BLCCoreStudio/AgentContextMap@v0.1.0
         with:
           path: .
           format: terminal
@@ -55,20 +55,20 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 
 ```yaml
       - name: Enforce active instruction conflicts
-        uses: BLCCoreStudio/AgentContextMap@main
+        uses: BLCCoreStudio/AgentContextMap@v0.1.0
         with:
           path: .
           target: src/api/auth.rs
           fail-on-conflict: "true"
 ```
 
-The composite Action downloads the published `v0.1.0-alpha.2` Linux binary and verifies its fixed SHA-256 digest before execution. The requested repository path must remain inside `GITHUB_WORKSPACE`.
+The composite Action downloads the matching versioned Linux binary and verifies it against the SHA-256 file published with the same release. The requested repository path must remain inside `GITHUB_WORKSPACE`.
 
 ### Linux x86_64 — download one file and run
 
 No Rust toolchain and no archive extraction are required.
 
-**[Download `agentcontext-linux-x86_64` from v0.1.0-alpha.2](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.1.0-alpha.2/agentcontext-linux-x86_64)**
+**[Download `agentcontext-linux-x86_64` from v0.1.0](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.1.0/agentcontext-linux-x86_64)**
 
 Then:
 
@@ -135,7 +135,7 @@ Fail CI only on high-confidence conflicts that are definitely active for the req
 agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 ```
 
-## What alpha.2 models
+## What v0.1.0 models
 
 | Capability | Support |
 | --- | --- |
@@ -201,7 +201,7 @@ Claude/Gemini relative imports are followed only when they remain inside the sca
 agentcontext [ROOT] [OPTIONS]
 
 --target <PATH>        Show sources that can affect a target path
---json                 Emit machine-readable JSON
+--json                 Emit machine-readable JSON output
 --html <PATH>          Write a self-contained interactive report viewer
 --fail-on-conflict     Exit with code 2 on a high-severity active conflict
 -h, --help             Print help
@@ -229,7 +229,7 @@ Near-term work is focused on correctness rather than adding every format possibl
 3. richer conflict classes with measured false-positive rates;
 4. per-agent context-budget breakdown;
 5. SARIF / GitHub code-scanning output;
-6. a versioned GitHub Action release, signed releases, and easier package-manager installs.
+6. release attestations, easier package-manager installs, and broader runner support.
 
 ## Contributing and support
 
