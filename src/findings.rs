@@ -1,5 +1,5 @@
 use crate::model::{ActivationState, Finding, FindingKind, InstructionSource, Severity, SourceKind};
-use std::collections::{HashSet, BTreeSet};
+use std::collections::{BTreeSet, HashSet};
 use std::path::Path;
 
 #[derive(Debug)]
@@ -133,9 +133,7 @@ fn collect_directives(sources: &[InstructionSource]) -> Vec<Directive> {
             if in_fence || trimmed.is_empty() || trimmed == "---" || trimmed.starts_with('#') {
                 continue;
             }
-            let line = trimmed
-                .trim_start_matches(|ch: char| matches!(ch, '-' | '*' | '+' | ' '))
-                .trim();
+            let line = trimmed.trim_start_matches(['-', '*', '+', ' ']).trim();
             if line.len() < 5 || line.len() > 220 || line.contains("AgentContextMap:") {
                 continue;
             }
