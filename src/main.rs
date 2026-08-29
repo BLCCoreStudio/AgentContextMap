@@ -1,7 +1,10 @@
+mod sarif;
+
 use agentcontextmap::{analyze, render_html, render_json, render_text, FindingKind};
+use sarif::render_sarif;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -22,6 +25,7 @@ fn main() {
     let mut target = None;
     let mut json = false;
     let mut html = None;
+    let mut sarif = None;
     let mut fail_on_conflict = false;
     let mut positional_seen = false;
 
@@ -43,6 +47,13 @@ fn main() {
                 };
                 html = Some(PathBuf::from(value));
             }
+            "--sarif" => {
+                index += 1;
+                let Some(value) = args.get(index) else {
+                    die("--sarif requires an output path");
+                };
+                sarif = Some(PathBuf::from(value));
+            }
             "--fail-on-conflict" => fail_on_conflict = true,
             value if value.starts_with('-') => die(&format!("unknown option: {value}")),
             value => {
@@ -62,19 +73,11 @@ fn main() {
     };
 
     if let Some(output) = html {
-        if let Some(parent) = output.parent() {
-            if !parent.as_os_str().is_empty() {
-                if let Err(error) = fs::create_dir_all(parent) {
-                    die(&format!("failed to create {}: {error}", parent.display()));
-                }
-            }
-        }
-        if let Err(error) = fs::write(&output, render_html(&analysis)) {
-            die(&format!("failed to write {}: {error}", output.display()));
-        }
-        if !json {
-            eprintln!("HTML report: {}", output.display());
-        }
+        write_report(&output, render_html(&analysis), "HTML");
+    }
+
+    if let Some(output) = sarif {
+        write_report(&output, render_sarif(&analysis), "SARIF");
     }
 
     if json {
@@ -95,6 +98,20 @@ fn main() {
     }
 }
 
+fn write_report(output: &Path, content: String, label: &str) {
+    if let Some(parent) = output.parent() {
+        if !parent.as_os_str().is_empty() {
+            if let Err(error) = fs::create_dir_all(parent) {
+                die(&format!("failed to create {}: {error}", parent.display()));
+            }
+        }
+    }
+    if let Err(error) = fs::write(output, content) {
+        die(&format!("failed to write {}: {error}", output.display()));
+    }
+    eprintln!("{label} report: {}", output.display());
+}
+
 fn die(message: &str) -> ! {
     eprintln!("agentcontext: {message}");
     process::exit(1);
@@ -106,7 +123,7 @@ fn print_help() {
 See which repository instructions can affect your coding agents.\n\n\
 USAGE:\n    agentcontext [ROOT] [OPTIONS]\n\n\
 ARGUMENTS:\n    [ROOT]                 Repository root to inspect [default: .]\n\n\
-OPTIONS:\n    --target <PATH>        Show the effective instruction chain for a target path\n    --json                 Emit machine-readable JSON\n    --html <PATH>          Write a self-contained visual HTML report\n    --fail-on-conflict     Exit with code 2 when a high-severity conflict is detected\n    -h, --help             Print help\n    -V, --version          Print version\n\n\
-EXAMPLES:\n    agentcontext .\n    agentcontext . --target src/api/auth.rs\n    agentcontext . --target src/api/auth.rs --html report.html\n    agentcontext . --json --fail-on-conflict"
+OPTIONS:\n    --target <PATH>        Show the effective instruction chain for a target path\n    --json                 Emit machine-readable JSON\n    --html <PATH>          Write a self-contained visual HTML report\n    --sarif <PATH>         Write SARIF 2.1.0 for GitHub Code Scanning\n    --fail-on-conflict     Exit with code 2 when a high-severity conflict is detected\n    -h, --help             Print help\n    -V, --version          Print version\n\n\
+EXAMPLES:\n    agentcontext .\n    agentcontext . --target src/api/auth.rs\n    agentcontext . --target src/api/auth.rs --html report.html\n    agentcontext . --target src/api/auth.rs --sarif agentcontext.sarif\n    agentcontext . --json --fail-on-conflict"
     );
 }
