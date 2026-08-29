@@ -1,29 +1,29 @@
 # AgentContextMap
 
-**See what instructions your coding agents actually see.**
+**See which repository instructions can affect your coding agents.**
 
-AgentContextMap is a local CLI that maps repository instruction files across Codex, Claude Code, Gemini, GitHub Copilot, Cursor, Windsurf, and Cline. It can show the instruction chain for a specific file, flag obvious conflicts and duplicates, estimate context size, and generate a self-contained HTML report.
+AgentContextMap is a local, read-only CLI for mapping repository instruction files across Codex, Claude Code, Gemini CLI, GitHub Copilot, Cursor, Windsurf, and Cline. Give it a repository — and optionally a target file — to see the relevant instruction sources, activation state, obvious conflicts, context size, and a self-contained HTML report.
 
-> **Status:** early alpha. The supported file conventions and deterministic conflict heuristics are intentionally conservative and will evolve as agent tooling changes.
+> **Status:** early alpha. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Why this exists
 
-Modern repositories can contain several overlapping instruction systems at once:
+A modern repository can contain several instruction systems at once:
 
-- `AGENTS.md`
+- `AGENTS.md` and Codex `AGENTS.override.md`
 - `CLAUDE.md`
 - `GEMINI.md`
 - `.github/copilot-instructions.md`
-- `.github/instructions/*.instructions.md`
-- `.cursor/rules/*.mdc`
-- `.windsurfrules`
-- `.clinerules`
+- `.github/instructions/**/*.instructions.md`
+- `.cursor/rules/**/*.mdc`
+- `.windsurf/rules/**/*.md`
+- `.clinerules/**/*.md` / `*.txt`
 
-Once those files become nested or pattern-scoped, it gets hard to answer a simple question:
+Once these become nested, path-specific, model-decided, or manual, a simple question becomes surprisingly hard:
 
-**Which instructions can affect this file right now?**
+**Which instructions can affect this file, and which ones are definitely active versus merely conditional?**
 
-AgentContextMap makes that visible without calling an AI model or sending repository content anywhere.
+AgentContextMap answers that without calling an LLM, executing repository instructions, or sending repository content to a remote service.
 
 ## Quick start
 
@@ -31,15 +31,15 @@ AgentContextMap makes that visible without calling an AI model or sending reposi
 
 No Rust toolchain is required for the release binary.
 
-**[Download AgentContextMap v0.1.0-alpha.1 for Linux x86_64](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.1.0-alpha.1/AgentContextMap-v0.1.0-alpha.1-linux-x86_64-musl.tar.gz)**
+**[Download the current public alpha for Linux x86_64](https://github.com/BLCCoreStudio/AgentContextMap/releases/latest)**
+
+The release page contains a portable musl archive and matching SHA-256 checksum.
 
 ```bash
-tar -xzf AgentContextMap-v0.1.0-alpha.1-linux-x86_64-musl.tar.gz
+tar -xzf AgentContextMap-*-linux-x86_64-musl.tar.gz
 ./agentcontext --help
 ./agentcontext .
 ```
-
-The matching `.sha256` checksum is published beside the archive on the release page.
 
 ### Install from source
 
@@ -61,23 +61,47 @@ Inspect one target path:
 agentcontext . --target src/api/auth.rs
 ```
 
-Generate a shareable local report:
+Generate a local HTML report:
 
 ```bash
 agentcontext . --target src/api/auth.rs --html report.html
 ```
 
-Machine-readable output for CI or other tooling:
+The HTML is an **interactive viewer for the analysis already performed by the CLI**. You can filter by agent and activation state, search sources, expand the exact instruction text, and highlight sources involved in findings. It does not silently rescan your filesystem from the browser; rerun the CLI after repository files change.
+
+Machine-readable output:
 
 ```bash
 agentcontext . --json
 ```
 
-Fail CI when a high-confidence conflict is detected:
+Fail CI only on high-confidence conflicts that are definitely active for the requested target:
 
 ```bash
-agentcontext . --json --fail-on-conflict
+agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 ```
+
+## What alpha.2 models
+
+| Capability | Support |
+| --- | --- |
+| Nested `AGENTS.md` across documented agent ecosystems | Yes |
+| Codex `AGENTS.override.md` | Yes |
+| Hierarchical `CLAUDE.md` and repository-contained `@` imports | Yes |
+| Hierarchical `GEMINI.md` and repository-contained `@` imports | Yes |
+| Copilot repo-wide + recursive path-specific instructions | Yes |
+| Cursor `.mdc` rules with always/glob/model/manual activation | Yes |
+| Windsurf `.windsurf/rules/*.md` activation modes | Yes |
+| Cline `.clinerules/` plus `paths` conditions | Yes |
+| Correct `*` vs `**`, brace and basic character-class glob matching | Yes |
+| Agent-aware conflict detection | Yes |
+| Active vs path-specific vs conditional vs manual status | Yes |
+| Missing repository import findings | Yes |
+| JSON output | Yes |
+| Interactive self-contained HTML viewer | Yes |
+| Executes instructions, tools, prompts, scripts, or MCP servers | **No** |
+| Reads imports outside the scanned repository | **No** |
+| Sends repository content to a remote service | **No** |
 
 ## Example
 
@@ -88,18 +112,14 @@ Root: /work/acme
 Target: src/api/auth.rs
 Sources: 5 | Approx. tokens: 812 | Findings: 1
 
-[Codex / AGENTS.md]
-  1. AGENTS.md              (workspace tree)
-  2. src/api/AGENTS.md      (src/api subtree)
-
-[Claude Code]
-  1. CLAUDE.md              (workspace tree)
-
-[GitHub Copilot]
-  1. .github/copilot-instructions.md  (workspace-wide)
-
-[Cursor]
-  1. .cursor/rules/rust.mdc (pattern: **/*.rs)
+Instruction sources
+-------------------
+1. AGENTS.md
+   Agents: Codex, GitHub Copilot, Cursor, Windsurf, Cline
+   Status: active | Scope: workspace tree
+2. src/api/AGENTS.md
+   Agents: Codex, GitHub Copilot, Cursor, Windsurf, Cline
+   Status: active | Scope: src/api subtree
 
 Findings
 --------
@@ -107,53 +127,29 @@ CONFLICT [high] AGENTS.md <-> src/api/AGENTS.md
   Overlapping sources contain directives with opposite polarity.
 ```
 
-## What it checks today
+## Correctness model
 
-| Capability | Alpha support |
-| --- | --- |
-| Discover common coding-agent instruction files | Yes |
-| Nested `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` scope | Yes |
-| Copilot workspace + `applyTo` instructions | Yes |
-| Cursor `globs` + `alwaysApply` rules | Yes |
-| Workspace-wide Windsurf and Cline rules | Yes |
-| Target-specific effective source list | Yes |
-| Obvious positive/negative directive conflicts | Yes |
-| Duplicate directives across overlapping sources | Yes |
-| JavaScript package-manager choice conflicts | Yes |
-| Approximate context/token budget | Yes |
-| JSON output | Yes |
-| Self-contained interactive HTML report | Yes |
-| Executes agent tools, prompts, or scripts | **No** |
-| Sends repository content to a remote service | **No** |
+AgentContextMap does **not** pretend every coding agent has identical semantics.
 
-## Scope model
+The scanner keeps source ownership and activation explicit. A manual Windsurf rule is not labeled active. A Cursor model-decided rule is not treated as certain. A conflict between Claude-only and Gemini-only files is not reported as if one agent saw both. Path-specific rules are evaluated against the supplied target.
 
-AgentContextMap does not pretend every agent has identical semantics.
-
-The alpha release models common repository conventions deterministically:
-
-- hierarchical files apply to their directory subtree;
-- workspace instruction files apply across the repository;
-- supported pattern-scoped files are matched against the target path;
-- nested sources are shown in increasing scope depth so the most specific source is visible last.
-
-Agent products change quickly. If a vendor changes how an instruction format is loaded, open an issue with a documentation link or reproducible example.
+For the exact vendor documentation used to implement these decisions, read [`docs/SEMANTICS.md`](docs/SEMANTICS.md).
 
 ## Designed for inspection, not execution
 
-AgentContextMap only reads text files. It does **not** execute commands found in instructions, run agent skills, start MCP servers, call LLM APIs, or require an account.
+AgentContextMap reads instruction text but never follows it. It does not run commands found in repository instructions, start agent skills, contact MCP servers, or call an AI API.
 
-That makes it useful before giving a repository to an AI coding agent, and safe to run in CI as a read-only inspection step.
+Claude/Gemini relative imports are followed only when they remain inside the scanned repository. Absolute, home-directory, or escaping imports are intentionally not read.
 
 ## CLI
 
 ```text
 agentcontext [ROOT] [OPTIONS]
 
---target <PATH>        Show the effective instruction chain for a target path
+--target <PATH>        Show sources that can affect a target path
 --json                 Emit machine-readable JSON
---html <PATH>          Write a self-contained visual HTML report
---fail-on-conflict     Exit with code 2 on a high-severity conflict
+--html <PATH>          Write a self-contained interactive report viewer
+--fail-on-conflict     Exit with code 2 on a high-severity active conflict
 -h, --help             Print help
 -V, --version          Print version
 ```
@@ -162,22 +158,28 @@ Exit codes:
 
 - `0`: analysis completed and no configured failure condition was hit
 - `1`: invalid arguments or I/O failure
-- `2`: high-severity conflict found with `--fail-on-conflict`
+- `2`: a high-severity conflict was found with `--fail-on-conflict`
+
+## Known limits
+
+This is not runtime instrumentation. User/global/org instruction sources outside the repository are not scanned, model-decided rules cannot be proven active from files alone, and deterministic natural-language conflict detection cannot understand every possible contradiction.
+
+Those limits are documented rather than hidden. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md).
 
 ## Roadmap
 
-Near-term work is focused on correctness rather than adding every agent format possible:
+Near-term work is focused on correctness rather than adding every format possible:
 
-1. broader documented precedence models;
-2. richer conflict classes with lower false-positive rates;
-3. context-budget breakdown by agent and scope;
-4. SARIF / GitHub code-scanning output;
-5. signed release binaries and one-command installs;
-6. benchmark fixtures from real multi-agent repositories.
+1. vendor-specific precedence visualizations;
+2. broader real-repository compatibility fixtures;
+3. richer conflict classes with measured false-positive rates;
+4. per-agent context-budget breakdown;
+5. SARIF / GitHub code-scanning output;
+6. signed releases and easier package-manager installs.
 
 ## Contributing
 
-Bug reports and small, well-scoped pull requests are welcome. Please include a minimal repository layout when reporting scope or precedence problems.
+Bug reports and small, well-scoped pull requests are welcome. For scope/precedence bugs, include the agent product, version if known, a minimal repository layout, and a documentation link or reproducible observation.
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
