@@ -1,0 +1,126 @@
+name: Auto Label
+
+on:
+  issues:
+    types: [opened, edited, reopened]
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  label-issue:
+    if: github.event.issue != null
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Classify issue
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+          TITLE: ${{ github.event.issue.title }}
+          BODY: ${{ github.event.issue.body }}
+        run: |
+          set -euo pipefail
+          text="$(printf "%s\n%s" "$TITLE" "${BODY:-}" | tr "[:upper:]" "[:lower:]")"
+
+          labels=("needs-triage")
+
+          if grep -Eiq "(bug|error|fail|failure|crash|panic|broken|regression|hata|çök|çalışmıyor)" <<< "$text"; then
+            labels+=("bug")
+          fi
+
+          if grep -Eiq "(feature|enhancement|request|proposal|idea|öneri|özellik)" <<< "$text"; then
+            labels+=("enhancement")
+          fi
+
+          if grep -Eiq "(security|vulnerability|cve|exploit|secret|token leak|güvenlik|açık)" <<< "$text"; then
+            labels+=("security")
+          fi
+
+          if grep -Eiq "(documentation|docs|readme|typo|belge|doküman)" <<< "$text"; then
+            labels+=("documentation")
+          fi
+
+          if grep -Eiq "(dependency|dependencies|cargo|gradle|github action|dependabot|bağımlılık)" <<< "$text"; then
+            labels+=("dependencies")
+          fi
+
+          if grep -Eiq "(question|how to|how do|help|soru|nasıl)" <<< "$text"; then
+            labels+=("question")
+          fi
+
+          args=()
+          for label in "${labels[@]}"; do
+            args+=(-f "labels[]=$label")
+          done
+
+          gh api --method POST "repos/$REPO/issues/$NUMBER/labels" "${args[@]}" >/dev/null
+
+  label-pull-request:
+    if: github.event.pull_request != null
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Classify pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$HEAD_REPO" != "$REPO" ]]; then
+            echo "Fork PR: write token deliberately not used."
+            exit 0
+          fi
+
+          if [[ "$AUTHOR" == "dependabot[bot]" ]]; then
+            echo "Dependabot manages its dependency classification separately."
+            exit 0
+          fi
+
+          files="$(gh api --paginate "repos/$REPO/pulls/$NUMBER/files" --jq ".[].filename")"
+          labels=()
+
+          if grep -Eiq "(^|/)(README[^/]*|docs/)|\.md$" <<< "$files"; then
+            labels+=("documentation")
+          fi
+
+          if grep -Eiq "(^|/)\.github/workflows/" <<< "$files"; then
+            labels+=("github-actions")
+          fi
+
+          if grep -Eiq "(Cargo\.toml|Cargo\.lock|gradle|libs\.versions\.toml|package(-lock)?\.json|pnpm-lock\.yaml|yarn\.lock|requirements[^/]*\.txt|pyproject\.toml|uv\.lock|go\.mod|go\.sum)" <<< "$files"; then
+            labels+=("dependencies")
+          fi
+
+          if grep -Eiq "(^|/)(test|tests)/|_test\.|\.spec\.|Test\.kt$" <<< "$files"; then
+            labels+=("tests")
+          fi
+
+          if grep -Eiq "(SECURITY\.md|dependabot|codeql|security)" <<< "$files"; then
+            labels+=("security")
+          fi
+
+          if [[ "${#labels[@]}" -eq 0 ]]; then
+            labels+=("maintenance")
+          fi
+
+          args=()
+          for label in "${labels[@]}"; do
+            args+=(-f "labels[]=$label")
+          done
+
+          gh api --method POST "repos/$REPO/issues/$NUMBER/labels" "${args[@]}" >/dev/null
