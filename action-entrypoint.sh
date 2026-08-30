@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly AGENTCONTEXT_FALLBACK_TAG="v0.1.0"
 readonly AGENTCONTEXT_ASSET="agentcontext-linux-x86_64"
 
 action_ref="${AGENTCONTEXT_ACTION_REF:-}"
@@ -18,7 +17,13 @@ if [[ -z "$action_ref" ]]; then
 elif [[ "$action_ref" =~ ^v[0-9]+(\.[0-9]+){0,2}(-[0-9A-Za-z.-]+)?$ ]]; then
   AGENTCONTEXT_TAG="$action_ref"
 else
-  AGENTCONTEXT_TAG="$AGENTCONTEXT_FALLBACK_TAG"
+  [[ -n "${GITHUB_ACTION_PATH:-}" ]] \
+    || { printf 'AgentContextMap Action: cannot resolve a non-tag Action ref without GITHUB_ACTION_PATH.\n' >&2; exit 1; }
+  action_version="$(sed -n 's/^version = "\([0-9][0-9.]*\)"/\1/p' "${GITHUB_ACTION_PATH}/Cargo.toml" | head -n1)"
+  [[ "$action_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || { printf 'AgentContextMap Action: could not resolve the release version from Cargo.toml.\n' >&2; exit 1; }
+  AGENTCONTEXT_TAG="v${action_version}"
+  printf 'AgentContextMap Action: resolved ref %s to release %s.\n' "$action_ref" "$AGENTCONTEXT_TAG"
 fi
 
 fail() {
