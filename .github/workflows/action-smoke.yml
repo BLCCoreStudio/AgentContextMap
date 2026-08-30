@@ -53,7 +53,7 @@ jobs:
           format: json
           sarif: .tmp/agentcontext.sarif
 
-      - name: Assert Action SARIF output
+      - name: Assert Action SARIF and job summary output
         shell: bash
         env:
           SARIF_PATH: ${{ steps.sarif.outputs.sarif }}
@@ -63,6 +63,9 @@ jobs:
           test -f "$SARIF_PATH"
           grep -F '"version":"2.1.0"' "$SARIF_PATH"
           grep -F '"ruleId":"ACM001"' "$SARIF_PATH"
+          grep -F '## AgentContextMap' "$GITHUB_STEP_SUMMARY"
+          grep -F '**Result:** `pass`' "$GITHUB_STEP_SUMMARY"
+          grep -F '**Target:** `src/api/auth.rs`' "$GITHUB_STEP_SUMMARY"
 
       - name: Verify conflict gate
         id: conflict-gate
@@ -81,3 +84,4 @@ jobs:
         run: |
           set -euo pipefail
           test "$GATE_OUTCOME" = "failure"
+          grep -F '**Result:** `conflict gate triggered`' "$GITHUB_STEP_SUMMARY"
