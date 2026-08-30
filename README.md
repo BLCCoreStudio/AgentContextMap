@@ -16,7 +16,7 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
   </a>
 </p>
 
-> **Status:** `v0.2.1` is the current stable release and has been published through the GitHub Marketplace Action release flow. It includes SARIF 2.1.0 CLI and GitHub Action output, explicit GitHub Code Scanning integration, release checksum verification, and GitHub Actions job summaries. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
+> **Status:** `v0.2.3` is the current stable release line published through the GitHub Marketplace Action release flow. It includes SARIF 2.1.0 CLI and GitHub Action output, explicit GitHub Code Scanning integration, release checksum verification, GitHub Actions job summaries, and correct release resolution for immutable SHA-pinned Action references. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Use it
 
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Inspect coding-agent instructions
-        uses: BLCCoreStudio/AgentContextMap@v0.2.1
+        uses: BLCCoreStudio/AgentContextMap@v0.2.3
         with:
           path: .
           format: terminal
@@ -55,14 +55,14 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 
 ```yaml
       - name: Enforce active instruction conflicts
-        uses: BLCCoreStudio/AgentContextMap@v0.2.1
+        uses: BLCCoreStudio/AgentContextMap@v0.2.3
         with:
           path: .
           target: src/api/auth.rs
           fail-on-conflict: "true"
 ```
 
-The composite Action downloads the matching versioned Linux binary and verifies it against the SHA-256 file published with the same release. The requested repository path must remain inside `GITHUB_WORKSPACE`.
+The composite Action downloads the matching versioned Linux binary and verifies it against the SHA-256 file published with the same release. For immutable SHA/branch references, the wrapper resolves the matching release version from the pinned Action source itself instead of falling back to an unrelated older binary. The requested repository path must remain inside `GITHUB_WORKSPACE`.
 
 By default the Action also appends its result and report to the GitHub Actions **job summary**, so the scan is visible without opening raw logs. Set `job-summary: "false"` if a workflow deliberately does not want that summary. This does not require any additional repository write permission.
 
@@ -92,7 +92,7 @@ jobs:
 
       - name: Generate AgentContextMap SARIF
         id: agentcontext
-        uses: BLCCoreStudio/AgentContextMap@v0.2.1
+        uses: BLCCoreStudio/AgentContextMap@v0.2.3
         with:
           path: .
           sarif: agentcontext.sarif
@@ -110,7 +110,7 @@ The upload remains a separate step intentionally: AgentContextMap itself keeps i
 
 No Rust toolchain and no archive extraction are required.
 
-**[Download `agentcontext-linux-x86_64` from v0.2.1](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.2.1/agentcontext-linux-x86_64)**
+**[Download `agentcontext-linux-x86_64` from v0.2.3](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.2.3/agentcontext-linux-x86_64)**
 
 Then:
 
@@ -183,7 +183,7 @@ Fail CI only on high-confidence conflicts that are definitely active for the req
 agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 ```
 
-## What v0.2.1 models
+## What v0.2.3 models
 
 | Capability | Support |
 | --- | --- |
@@ -204,6 +204,7 @@ agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 | SARIF 2.1.0 output with stable `ACM001`–`ACM004` rule IDs | Yes |
 | GitHub Action SARIF file output | Yes |
 | GitHub Actions job summary | Yes |
+| Immutable SHA-ref release resolution | Yes |
 | Interactive self-contained HTML viewer | Yes |
 | Executes instructions, tools, prompts, scripts, or MCP servers | **No** |
 | Reads imports outside the scanned repository | **No** |
@@ -249,7 +250,7 @@ Claude/Gemini relative imports are followed only when they remain inside the sca
 
 ## CLI
 
-`v0.2.1` supports:
+`v0.2.3` supports:
 
 ```text
 agentcontext [ROOT] [OPTIONS]
