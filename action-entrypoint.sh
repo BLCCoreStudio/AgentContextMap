@@ -55,6 +55,7 @@ target_path="${AGENTCONTEXT_INPUT_TARGET:-}"
 report_format="${AGENTCONTEXT_INPUT_FORMAT:-terminal}"
 sarif_input="${AGENTCONTEXT_INPUT_SARIF:-}"
 fail_on_conflict="${AGENTCONTEXT_INPUT_FAIL_ON_CONFLICT:-false}"
+job_summary="${AGENTCONTEXT_INPUT_JOB_SUMMARY:-true}"
 
 case "$report_format" in
   terminal|json)
@@ -69,6 +70,14 @@ case "$fail_on_conflict" in
     ;;
   *)
     fail "fail-on-conflict must be 'true' or 'false'."
+    ;;
+esac
+
+case "$job_summary" in
+  true|false)
+    ;;
+  *)
+    fail "job-summary must be 'true' or 'false'."
     ;;
 esac
 
@@ -182,4 +191,33 @@ if [[ "$fail_on_conflict" == "true" ]]; then
 fi
 
 printf 'AgentContextMap Action: inspecting %s\n' "$scan_path"
-"$binary_path" "${args[@]}"
+
+set +e
+scan_output="$("$binary_path" "${args[@]}" 2>&1)"
+scan_status=$?
+set -e
+
+printf '%s\n' "$scan_output"
+
+if [[ "$job_summary" == "true" && -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+  case "$scan_status" in
+    0) summary_result="pass" ;;
+    2) summary_result="conflict gate triggered" ;;
+    *) summary_result="failed (exit ${scan_status})" ;;
+  esac
+
+  if ! {
+    printf '## AgentContextMap\n\n'
+    printf '**Result:** `%s`\n\n' "$summary_result"
+    if [[ -n "$target_path" ]]; then
+      printf '**Target:** `%s`\n\n' "$target_path"
+    fi
+    printf '### Report\n\n'
+    printf '%s\n' "$scan_output" | sed 's/^/    /'
+    printf '\n'
+  } >> "$GITHUB_STEP_SUMMARY"; then
+    printf 'AgentContextMap Action: warning: failed to append the job summary.\n' >&2
+  fi
+fi
+
+exit "$scan_status"
