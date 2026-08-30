@@ -72,7 +72,7 @@ jobs:
           echo "BINARY=$BINARY" >> "$GITHUB_ENV"
           echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
 
-      - name: Create release
+      - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -98,6 +98,21 @@ jobs:
           Quickest Linux path: download `agentcontext-linux-x86_64`, mark it executable, and run it. Matching SHA-256 files are provided for both release formats.
           EOF
 
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" \
+              "$BINARY" \
+              "$BINARY.sha256" \
+              "$ARCHIVE" \
+              "$ARCHIVE.sha256" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "AgentContextMap $GITHUB_REF_NAME" \
+              --notes-file /tmp/release-notes.md
+            exit 0
+          fi
+
           release_flags=()
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             release_flags+=(--prerelease)
@@ -108,6 +123,7 @@ jobs:
             "$BINARY.sha256" \
             "$ARCHIVE" \
             "$ARCHIVE.sha256" \
+            --repo "$GITHUB_REPOSITORY" \
             --title "AgentContextMap $GITHUB_REF_NAME" \
             "${release_flags[@]}" \
             --notes-file /tmp/release-notes.md
