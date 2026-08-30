@@ -16,13 +16,13 @@ AgentContextMap is a local, read-only tool for mapping repository instruction fi
   </a>
 </p>
 
-> **Status:** `v0.2.0` is the stable release prepared for GitHub Marketplace. It includes SARIF 2.1.0 CLI and GitHub Action output, explicit GitHub Code Scanning integration, and more robust discovery in repositories containing unrelated binary or non-UTF8 files. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
+> **Status:** `v0.2.1` is the current stable release and has been published through the GitHub Marketplace Action release flow. It includes SARIF 2.1.0 CLI and GitHub Action output, explicit GitHub Code Scanning integration, release checksum verification, and GitHub Actions job summaries. Use versioned release tags for production workflows. Agent behavior changes quickly, so support is deliberately conservative and tied to documented vendor behavior. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md) for the verification matrix and known limits.
 
 ## Use it
 
 | GitHub Actions | Local CLI |
 | --- | --- |
-| Inspect repository instruction sources during CI, optionally fail on high-confidence active conflicts, and write SARIF for Code Scanning. | Inspect locally, emit terminal/JSON output, write SARIF 2.1.0, or generate a self-contained interactive HTML report. |
+| Inspect repository instruction sources during CI, optionally fail on high-confidence active conflicts, write a GitHub job summary, and emit SARIF for Code Scanning. | Inspect locally, emit terminal/JSON output, write SARIF 2.1.0, or generate a self-contained interactive HTML report. |
 | Linux x86_64 runner | Linux x86_64 standalone binary; source builds may work elsewhere |
 
 ### GitHub Actions
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Inspect coding-agent instructions
-        uses: BLCCoreStudio/AgentContextMap@v0.2.0
+        uses: BLCCoreStudio/AgentContextMap@v0.2.1
         with:
           path: .
           format: terminal
@@ -55,7 +55,7 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 
 ```yaml
       - name: Enforce active instruction conflicts
-        uses: BLCCoreStudio/AgentContextMap@v0.2.0
+        uses: BLCCoreStudio/AgentContextMap@v0.2.1
         with:
           path: .
           target: src/api/auth.rs
@@ -63,6 +63,8 @@ Start report-only. When you want a CI gate for high-confidence active conflicts:
 ```
 
 The composite Action downloads the matching versioned Linux binary and verifies it against the SHA-256 file published with the same release. The requested repository path must remain inside `GITHUB_WORKSPACE`.
+
+By default the Action also appends its result and report to the GitHub Actions **job summary**, so the scan is visible without opening raw logs. Set `job-summary: "false"` if a workflow deliberately does not want that summary. This does not require any additional repository write permission.
 
 ### SARIF and GitHub Code Scanning
 
@@ -90,7 +92,7 @@ jobs:
 
       - name: Generate AgentContextMap SARIF
         id: agentcontext
-        uses: BLCCoreStudio/AgentContextMap@v0.2.0
+        uses: BLCCoreStudio/AgentContextMap@v0.2.1
         with:
           path: .
           sarif: agentcontext.sarif
@@ -108,7 +110,7 @@ The upload remains a separate step intentionally: AgentContextMap itself keeps i
 
 No Rust toolchain and no archive extraction are required.
 
-**[Download `agentcontext-linux-x86_64` from v0.2.0](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.2.0/agentcontext-linux-x86_64)**
+**[Download `agentcontext-linux-x86_64` from v0.2.1](https://github.com/BLCCoreStudio/AgentContextMap/releases/download/v0.2.1/agentcontext-linux-x86_64)**
 
 Then:
 
@@ -181,7 +183,7 @@ Fail CI only on high-confidence conflicts that are definitely active for the req
 agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 ```
 
-## What v0.2.0 models
+## What v0.2.1 models
 
 | Capability | Support |
 | --- | --- |
@@ -201,6 +203,7 @@ agentcontext . --target src/api/auth.rs --json --fail-on-conflict
 | JSON output | Yes |
 | SARIF 2.1.0 output with stable `ACM001`–`ACM004` rule IDs | Yes |
 | GitHub Action SARIF file output | Yes |
+| GitHub Actions job summary | Yes |
 | Interactive self-contained HTML viewer | Yes |
 | Executes instructions, tools, prompts, scripts, or MCP servers | **No** |
 | Reads imports outside the scanned repository | **No** |
@@ -246,7 +249,7 @@ Claude/Gemini relative imports are followed only when they remain inside the sca
 
 ## CLI
 
-`v0.2.0` supports:
+`v0.2.1` supports:
 
 ```text
 agentcontext [ROOT] [OPTIONS]
@@ -271,6 +274,12 @@ Exit codes:
 This is not runtime instrumentation. User/global/org instruction sources outside the repository are not scanned, model-decided rules cannot be proven active from files alone, and deterministic natural-language conflict detection cannot understand every possible contradiction.
 
 Those limits are documented rather than hidden. See [`docs/SEMANTICS.md`](docs/SEMANTICS.md).
+
+## GitHub App direction
+
+The Marketplace Action is the preferred GitHub-native integration today because the scan runs inside the repository's GitHub Actions runner and preserves the current local-first privacy model. A future install-once GitHub App would require a hosted webhook/backend and therefore changes that privacy boundary.
+
+The minimum-permission App design, webhook scope, Checks API model, and implementation decision gate are documented in [`docs/GITHUB_APP.md`](docs/GITHUB_APP.md). The project will not silently move repository scanning to a hosted backend merely to add an App badge.
 
 ## Roadmap
 

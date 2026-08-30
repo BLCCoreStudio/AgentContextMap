@@ -27,6 +27,10 @@ inputs:
     description: "Set to true to fail with exit code 2 when a high-confidence active conflict is found."
     required: false
     default: "false"
+  job-summary:
+    description: "Set to false to disable the AgentContextMap report in the GitHub Actions job summary."
+    required: false
+    default: "true"
 
 outputs:
   sarif:
@@ -46,4 +50,5 @@ runs:
         AGENTCONTEXT_INPUT_FORMAT: ${{ inputs.format }}
         AGENTCONTEXT_INPUT_SARIF: ${{ inputs.sarif }}
         AGENTCONTEXT_INPUT_FAIL_ON_CONFLICT: ${{ inputs.fail-on-conflict }}
+        AGENTCONTEXT_INPUT_JOB_SUMMARY: ${{ inputs.job-summary }}
       run: bash "$GITHUB_ACTION_PATH/action-entrypoint.sh"
