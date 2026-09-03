@@ -63,11 +63,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/tmp/acm.json
-          (cd /tmp/agent-rules-fixture && whichrules src/api.ts --agent all --json) >/tmp/whichrules.json
+          mkdir -p benchmark-results
+          ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >benchmark-results/agentcontext-output.json
+          whichrules explain src/api.ts --root /tmp/agent-rules-fixture --agent all --json >benchmark-results/whichrules-output.json
+          echo '--- AgentContextMap output ---'
+          cat benchmark-results/agentcontext-output.json
+          echo '--- WhichRules output ---'
+          cat benchmark-results/whichrules-output.json
           for file in AGENTS.md CLAUDE.md GEMINI.md copilot-instructions.md typescript.mdc; do
-            grep -q "$file" /tmp/acm.json
-            grep -q "$file" /tmp/whichrules.json
+            grep -q "$file" benchmark-results/agentcontext-output.json
+            grep -q "$file" benchmark-results/whichrules-output.json
           done
           printf 'Both tools discovered the same five common-subset instruction sources.\n'
 
@@ -75,7 +80,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p benchmark-results
           {
             echo "workload=map instruction sources affecting src/api.ts across the five shared agent ecosystems"
             echo "fixture=AGENTS.md + CLAUDE.md + GEMINI.md + Copilot instructions + Cursor MDC"
@@ -84,7 +88,6 @@ jobs:
             echo "kernel=$(uname -srmo)"
             echo "cpu=$(lscpu | awk -F: '/Model name/{gsub(/^[ \t]+/,"",$2); print $2; exit}')"
             echo "agentcontext=$(./target/release/agentcontext --version)"
-            echo "whichrules=$(whichrules --version 2>&1 | head -n1 || true)"
             echo "node=$(node --version)"
             echo "hyperfine=$(hyperfine --version | head -n1)"
           } > benchmark-results/environment.txt
@@ -93,12 +96,10 @@ jobs:
             --export-json benchmark-results/instruction-map.json \
             --export-markdown benchmark-results/instruction-map.md \
             --command-name 'AgentContextMap' './target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null' \
-            --command-name 'WhichRules 0.2.0' 'cd /tmp/agent-rules-fixture && whichrules src/api.ts --agent all --json >/dev/null'
+            --command-name 'WhichRules 0.2.0' 'whichrules explain src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null'
 
           /usr/bin/time -v ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null 2>benchmark-results/agentcontext-time-v.txt
-          /usr/bin/time -v bash -lc 'cd /tmp/agent-rules-fixture && whichrules src/api.ts --agent all --json >/dev/null' 2>benchmark-results/whichrules-time-v.txt
-          cp /tmp/acm.json benchmark-results/agentcontext-output.json
-          cp /tmp/whichrules.json benchmark-results/whichrules-output.json
+          /usr/bin/time -v whichrules explain src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null 2>benchmark-results/whichrules-time-v.txt
           cat benchmark-results/instruction-map.md
 
       - name: Publish summary
