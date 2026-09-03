@@ -66,22 +66,34 @@ jobs:
           mkdir -p benchmark-results
           ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >benchmark-results/agentcontext-output.json
           whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >benchmark-results/whichrules-output.json
-          echo '--- AgentContextMap output ---'
-          cat benchmark-results/agentcontext-output.json
-          echo '--- WhichRules output ---'
-          cat benchmark-results/whichrules-output.json
           for file in AGENTS.md CLAUDE.md GEMINI.md copilot-instructions.md typescript.mdc; do
             grep -q "$file" benchmark-results/agentcontext-output.json
             grep -q "$file" benchmark-results/whichrules-output.json
           done
           printf 'Both tools discovered the same five common-subset instruction sources.\n'
 
-      - name: Benchmark one-target instruction mapping
+      - name: Benchmark aggregated instruction mapping
         shell: bash
         run: |
           set -euo pipefail
+          cat >/tmp/run-agentcontext-100.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          for _ in $(seq 1 100); do
+            ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null
+          done
+          EOF
+          cat >/tmp/run-whichrules-100.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          for _ in $(seq 1 100); do
+            whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null
+          done
+          EOF
+          chmod +x /tmp/run-agentcontext-100.sh /tmp/run-whichrules-100.sh
+
           {
-            echo "workload=map instruction sources affecting src/api.ts across the five shared agent ecosystems"
+            echo "workload=100 sequential mappings of instruction sources affecting src/api.ts"
             echo "fixture=AGENTS.md + CLAUDE.md + GEMINI.md + Copilot instructions + Cursor MDC"
             echo "whichrules_commit=413f62a3583538636d378dee2441e75a0b4c4981"
             echo "runner=ubuntu-24.04"
@@ -92,14 +104,14 @@ jobs:
             echo "hyperfine=$(hyperfine --version | head -n1)"
           } > benchmark-results/environment.txt
 
-          hyperfine --warmup 5 --runs 30 \
+          hyperfine --warmup 2 --runs 10 \
             --export-json benchmark-results/instruction-map.json \
             --export-markdown benchmark-results/instruction-map.md \
-            --command-name 'AgentContextMap' './target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null' \
-            --command-name 'WhichRules 0.2.0' 'whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null'
+            --command-name 'AgentContextMap x100' '/tmp/run-agentcontext-100.sh' \
+            --command-name 'WhichRules 0.2.0 x100' '/tmp/run-whichrules-100.sh'
 
-          /usr/bin/time -v ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null 2>benchmark-results/agentcontext-time-v.txt
-          /usr/bin/time -v whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null 2>benchmark-results/whichrules-time-v.txt
+          /usr/bin/time -v /tmp/run-agentcontext-100.sh >/dev/null 2>benchmark-results/agentcontext-time-v.txt
+          /usr/bin/time -v /tmp/run-whichrules-100.sh >/dev/null 2>benchmark-results/whichrules-time-v.txt
           cat benchmark-results/instruction-map.md
 
       - name: Publish summary
