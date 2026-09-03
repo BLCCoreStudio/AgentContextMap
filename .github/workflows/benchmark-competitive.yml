@@ -65,7 +65,7 @@ jobs:
           set -euo pipefail
           mkdir -p benchmark-results
           ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >benchmark-results/agentcontext-output.json
-          whichrules explain src/api.ts --root /tmp/agent-rules-fixture --agent all --json >benchmark-results/whichrules-output.json
+          whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >benchmark-results/whichrules-output.json
           echo '--- AgentContextMap output ---'
           cat benchmark-results/agentcontext-output.json
           echo '--- WhichRules output ---'
@@ -96,10 +96,10 @@ jobs:
             --export-json benchmark-results/instruction-map.json \
             --export-markdown benchmark-results/instruction-map.md \
             --command-name 'AgentContextMap' './target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null' \
-            --command-name 'WhichRules 0.2.0' 'whichrules explain src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null'
+            --command-name 'WhichRules 0.2.0' 'whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null'
 
           /usr/bin/time -v ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null 2>benchmark-results/agentcontext-time-v.txt
-          /usr/bin/time -v whichrules explain src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null 2>benchmark-results/whichrules-time-v.txt
+          /usr/bin/time -v whichrules explain /tmp/agent-rules-fixture/src/api.ts --root /tmp/agent-rules-fixture --agent all --json >/dev/null 2>benchmark-results/whichrules-time-v.txt
           cat benchmark-results/instruction-map.md
 
       - name: Publish summary
