@@ -1,0 +1,124 @@
+name: Competitive benchmark
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/benchmark-competitive.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  instruction-map:
+    name: AgentContextMap vs WhichRules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install benchmark tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes hyperfine time
+          npm install --global whichrules@0.2.0
+
+      - name: Build AgentContextMap
+        run: cargo build --release --locked
+
+      - name: Create common-subset fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/agent-rules-fixture
+          mkdir -p /tmp/agent-rules-fixture/src /tmp/agent-rules-fixture/.github /tmp/agent-rules-fixture/.cursor/rules
+          cat >/tmp/agent-rules-fixture/AGENTS.md <<'EOF'
+          Always use pnpm for dependency management.
+          Use single quotes in TypeScript.
+          EOF
+          cat >/tmp/agent-rules-fixture/CLAUDE.md <<'EOF'
+          Use npm for all package scripts.
+          Use double quotes in TypeScript.
+          EOF
+          cat >/tmp/agent-rules-fixture/GEMINI.md <<'EOF'
+          Run tests before committing changes.
+          EOF
+          cat >/tmp/agent-rules-fixture/.github/copilot-instructions.md <<'EOF'
+          Keep changes focused and add tests for behavior changes.
+          EOF
+          cat >/tmp/agent-rules-fixture/.cursor/rules/typescript.mdc <<'EOF'
+          ---
+          globs: "**/*.ts"
+          alwaysApply: false
+          ---
+          Prefer explicit return types for exported functions.
+          EOF
+          printf 'export const value: number = 1;\n' >/tmp/agent-rules-fixture/src/api.ts
+
+      - name: Verify shared instruction-discovery task
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/tmp/acm.json
+          (cd /tmp/agent-rules-fixture && whichrules src/api.ts --agent all --json) >/tmp/whichrules.json
+          for file in AGENTS.md CLAUDE.md GEMINI.md copilot-instructions.md typescript.mdc; do
+            grep -q "$file" /tmp/acm.json
+            grep -q "$file" /tmp/whichrules.json
+          done
+          printf 'Both tools discovered the same five common-subset instruction sources.\n'
+
+      - name: Benchmark one-target instruction mapping
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p benchmark-results
+          {
+            echo "workload=map instruction sources affecting src/api.ts across the five shared agent ecosystems"
+            echo "fixture=AGENTS.md + CLAUDE.md + GEMINI.md + Copilot instructions + Cursor MDC"
+            echo "runner=ubuntu-24.04"
+            echo "kernel=$(uname -srmo)"
+            echo "cpu=$(lscpu | awk -F: '/Model name/{gsub(/^[ \t]+/,"",$2); print $2; exit}')"
+            echo "agentcontext=$(./target/release/agentcontext --version)"
+            echo "whichrules=$(whichrules --version 2>&1 | head -n1 || true)"
+            echo "node=$(node --version)"
+            echo "hyperfine=$(hyperfine --version | head -n1)"
+          } > benchmark-results/environment.txt
+
+          hyperfine --warmup 5 --runs 30 \
+            --export-json benchmark-results/instruction-map.json \
+            --export-markdown benchmark-results/instruction-map.md \
+            --command-name 'AgentContextMap' './target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null' \
+            --command-name 'WhichRules 0.2.0' 'cd /tmp/agent-rules-fixture && whichrules src/api.ts --agent all --json >/dev/null'
+
+          /usr/bin/time -v ./target/release/agentcontext /tmp/agent-rules-fixture --target src/api.ts --json >/dev/null 2>benchmark-results/agentcontext-time-v.txt
+          /usr/bin/time -v bash -lc 'cd /tmp/agent-rules-fixture && whichrules src/api.ts --agent all --json >/dev/null' 2>benchmark-results/whichrules-time-v.txt
+          cp /tmp/acm.json benchmark-results/agentcontext-output.json
+          cp /tmp/whichrules.json benchmark-results/whichrules-output.json
+          cat benchmark-results/instruction-map.md
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [[ -f benchmark-results/environment.txt ]]; then
+            echo '## Environment' >> "$GITHUB_STEP_SUMMARY"
+            echo '```text' >> "$GITHUB_STEP_SUMMARY"
+            cat benchmark-results/environment.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -f benchmark-results/instruction-map.md ]]; then
+            echo '## Common-subset instruction mapping' >> "$GITHUB_STEP_SUMMARY"
+            cat benchmark-results/instruction-map.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload raw evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: agentcontextmap-competitive-benchmark-${{ github.sha }}
+          path: benchmark-results/
+          if-no-files-found: error
+          retention-days: 90
