@@ -24,8 +24,8 @@ jobs:
       - name: Install benchmark tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes hyperfine time
-          npm install --global whichrules@0.2.0
+          sudo apt-get install --yes hyperfine time git
+          npm install --global 'git+https://github.com/z35068037/whichrules.git#413f62a3583538636d378dee2441e75a0b4c4981'
 
       - name: Build AgentContextMap
         run: cargo build --release --locked
@@ -79,6 +79,7 @@ jobs:
           {
             echo "workload=map instruction sources affecting src/api.ts across the five shared agent ecosystems"
             echo "fixture=AGENTS.md + CLAUDE.md + GEMINI.md + Copilot instructions + Cursor MDC"
+            echo "whichrules_commit=413f62a3583538636d378dee2441e75a0b4c4981"
             echo "runner=ubuntu-24.04"
             echo "kernel=$(uname -srmo)"
             echo "cpu=$(lscpu | awk -F: '/Model name/{gsub(/^[ \t]+/,"",$2); print $2; exit}')"
